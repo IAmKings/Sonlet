@@ -6,6 +6,7 @@
 
 - [设计系统与交互规范](DESIGN.md)
 - [产品需求与技术方案](docs/Hex_Android_Offline_ASR_PRD_v1.0.md)
+- [真人验收指南](docs/acceptance_guide.md)
 - [第三方版本锁定清单](docs/third_party_versions.md)
 - [第三方许可证清单](docs/third_party_licenses.md)
 - [发布门检查清单](docs/release_checklist.md)
