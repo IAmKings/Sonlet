@@ -6,6 +6,7 @@ import com.sonlet.app.asr.api.FakeAsrEngine
 import com.sonlet.app.audio.capture.AudioCaptureErrorCode
 import com.sonlet.app.audio.capture.AudioCaptureException
 import com.sonlet.app.audio.capture.CaptureOptions
+import com.sonlet.app.audio.vad.SpeechSegmenter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -31,6 +32,8 @@ class DictationStateMachineTest {
         engine: FakeAsrEngine = FakeAsrEngine(),
         capture: FakeAudioCapture = FakeAudioCapture(),
         modelVerification: suspend () -> ModelVerificationResult = { ModelVerificationResult.Ok },
+        styleProvider: () -> DictationStyle = { DictationStyle.VERBATIM },
+        speechSegmenter: SpeechSegmenter? = null,
     ): Triple<DictationController, FakeAsrEngine, FakeAudioCapture> {
         val controller = DictationController(
             engine = engine,
@@ -38,6 +41,8 @@ class DictationStateMachineTest {
             captureOptions = CaptureOptions(),
             modelVerification = modelVerification,
             scope = backgroundScope,
+            styleProvider = styleProvider,
+            speechSegmenter = speechSegmenter,
         )
         controller.start()
         return Triple(controller, engine, capture)
@@ -421,5 +426,109 @@ class DictationStateMachineTest {
         assertEquals(DictationPhase.PREPARING, controller.state.value.phase)
         pump(500)
         awaitPhase(controller, DictationPhase.READY)
+    }
+
+    // ---- P1 CC-02:按下未启动完成即松开(pendingFinish) ----
+
+    @Test
+    fun `finish during starting completes right after recording starts`() = runTest {
+        val (controller, engine, capture) = newController(
+            engine = FakeAsrEngine().apply { transcribeText = "抢跑" },
+            capture = FakeAudioCapture().apply { startDelayMs = 1_000 },
+        )
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        pump(0)
+        assertEquals(DictationPhase.STARTING, controller.state.value.phase)
+        // 按住说话:启动未完成即松开(实际按住时长 ≥300ms)
+        capture.currentDurationMsOverride = 500L
+        controller.dispatch(DictationCommand.Finish)
+        // 启动完成后 pendingFinish 立即结束会话(链路在虚拟时间内连续完成)
+        pump(1_100)
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals("应恰好转写一次", 1, engine.transcribeCount.get())
+        assertEquals(1, capture.stoppedCount)
+        assertNull(controller.state.value.sessionId)
+    }
+
+    // ---- P1 FR-103:VAD 分段 ----
+
+    @Test
+    fun `vad with no speech segments skips transcription`() = runTest {
+        val segmenter = FakeSpeechSegmenter(segments = emptyList())
+        val (controller, engine, capture) = newController(speechSegmenter = segmenter)
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        capture_finish(controller)
+        pump(1_000)
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals("VAD 判无语音时不应调用识别", 0, engine.transcribeCount.get())
+        assertEquals(1, segmenter.calls)
+    }
+
+    @Test
+    fun `vad segments are transcribed in order and joined`() = runTest {
+        val segmenter = FakeSpeechSegmenter(
+            segments = listOf(FloatArray(16_000), FloatArray(8_000)),
+        )
+        val readyEvents = mutableListOf<DictationEvent.TranscriptReady>()
+        val (controller, engine, capture) = newController(
+            engine = FakeAsrEngine().apply {
+                synchronized(transcribeTextQueue) {
+                    transcribeTextQueue.addLast("今天天气")
+                    transcribeTextQueue.addLast("nice")
+                }
+            },
+            speechSegmenter = segmenter,
+        )
+        val collector = launch {
+            controller.events.collect {
+                if (it is DictationEvent.TranscriptReady) readyEvents.add(it)
+            }
+        }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        capture_finish(controller)
+        pump(1_000)
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals(2, engine.transcribeCount.get())
+        assertEquals(1, readyEvents.size)
+        // 汉字↔拉丁邻接补一个空格
+        assertEquals("今天天气 nice", readyEvents[0].text)
+        collector.cancel()
+    }
+
+    // ---- P1 FR-104:风格处理 ----
+
+    @Test
+    fun `concise style is applied to delivered text`() = runTest {
+        val readyEvents = mutableListOf<DictationEvent.TranscriptReady>()
+        val (controller, _, capture) = newController(
+            engine = FakeAsrEngine().apply { transcribeText = "嗯 这个 这个 方案" },
+            styleProvider = { DictationStyle.CONCISE },
+        )
+        val collector = launch {
+            controller.events.collect {
+                if (it is DictationEvent.TranscriptReady) readyEvents.add(it)
+            }
+        }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        capture_finish(controller)
+        pump(1_000)
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals(1, readyEvents.size)
+        assertEquals("这个 方案", readyEvents[0].text)
+        collector.cancel()
+    }
+
+    private fun capture_finish(controller: DictationController) {
+        controller.dispatch(DictationCommand.Finish)
     }
 }

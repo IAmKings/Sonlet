@@ -56,6 +56,10 @@ class PcmAudioRecorder(
     @Volatile
     private var durationCapped = false
 
+    /** 最近音频块 RMS(0..1);读取循环内更新,T3-02 波形展示用 */
+    @Volatile
+    private var currentRms = 0f
+
     /** 取消-启动竞态防护:cancel 标记的会话,若其 start 尚未完成则中止启动(CC-01) */
     @Volatile
     private var pendingCancelSessionId: Long = -1L
@@ -65,6 +69,9 @@ class PcmAudioRecorder(
 
     override val currentDurationMs: Long
         get() = sampleCount * 1000L / options.sampleRate
+
+    override val currentLevel: Float
+        get() = currentRms
 
     override suspend fun start(sessionId: Long, options: CaptureOptions) {
         mutex.withLock {
@@ -158,6 +165,7 @@ class PcmAudioRecorder(
             sampleCount = 0
             durationCapped = false
             stopRequested = false
+            currentRms = 0f
             collected
         }
     }
@@ -240,17 +248,26 @@ class PcmAudioRecorder(
         }
     }
 
-    /** PCM16 → Float32,写入有界缓冲;调用方保证 n ≥ 0 */
+    /** PCM16 → Float32,写入有界缓冲并更新块 RMS;调用方保证 n ≥ 0 */
     private fun appendPcm(chunk: ShortArray, n: Int) {
         val bufferLocal = buffer
         var index = sampleCount
         val capacity = bufferLocal.size
         val writable = minOf(n, capacity - index)
         var i = 0
+        var squareSum = 0.0
         while (i < writable) {
-            bufferLocal[index++] = chunk[i++] / 32768f
+            val sample = chunk[i] / 32768f
+            squareSum += sample.toDouble() * sample
+            bufferLocal[index++] = sample
+            i++
         }
         sampleCount = index
+        if (writable > 0) {
+            val rms = kotlin.math.sqrt(squareSum / writable)
+            // 归一化:语音正常峰值约 0.3 RMS,放大到 0..1 区间便于展示
+            currentRms = (rms.toFloat() * LEVEL_GAIN).coerceIn(0f, 1f)
+        }
     }
 
     private fun capacitySamples(options: CaptureOptions): Int =
@@ -273,5 +290,8 @@ class PcmAudioRecorder(
 
         /** 100ms @16kHz(PRD §10.1 音频块) */
         const val CHUNK_SAMPLES = 1_600
+
+        /** RMS→展示电平增益;语音近讲典型 RMS 0.05~0.3 */
+        const val LEVEL_GAIN = 4f
     }
 }

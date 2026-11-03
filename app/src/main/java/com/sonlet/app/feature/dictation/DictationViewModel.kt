@@ -10,10 +10,12 @@ import com.sonlet.app.asr.sherpa.ModelRepository
 import com.sonlet.app.asr.sherpa.SherpaEngineFactory
 import com.sonlet.app.audio.capture.CaptureOptions
 import com.sonlet.app.audio.capture.PcmAudioRecorder
+import com.sonlet.app.audio.vad.SileroVoiceSegmenter
 import com.sonlet.app.dictation.core.DictationCommand
 import com.sonlet.app.dictation.core.DictationController
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationEvent
+import com.sonlet.app.dictation.core.DictationStyle
 import com.sonlet.app.dictation.core.DictationUiState
 import com.sonlet.app.dictation.core.ModelVerificationResult
 import com.sonlet.app.dictation.core.TextInsertionPolicy
@@ -31,6 +33,7 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
     private val repository = ModelRepository(application.assets)
     private val engine: AsrEngine = SherpaEngineFactory.create(application.assets)
     private val capture = PcmAudioRecorder(application)
+    private val segmenter = SileroVoiceSegmenter(application.assets)
 
     private val controller = DictationController(
         engine = engine,
@@ -38,7 +41,19 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
         captureOptions = CaptureOptions(),
         modelVerification = { verifyModel() },
         scope = viewModelScope,
+        styleProvider = { currentStyle },
+        // P1 FR-103:Silero VAD 分段;无语音段跳过识别,长句切分转写
+        speechSegmenter = segmenter,
+        // 会话异常仅记结构化诊断(脱敏:不含音频与正文,G09)
+        errorLogger = { error -> android.util.Log.e("SonletDictation", "session error", error) },
     )
+
+    /** P1 风格选择(§12.2):交付时读取;UI 绑定用 */
+    var currentStyle: DictationStyle = DictationStyle.VERBATIM
+
+    fun setStyle(style: DictationStyle) {
+        currentStyle = style
+    }
 
     val uiState: StateFlow<DictationUiState> = controller.state
 
@@ -118,6 +133,7 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
         // 页面销毁:停止采集并失效交付(PRD §5.3、AC-P0-014)
         onAppBackgrounded()
         capture.dispose()
+        segmenter.close()
         super.onCleared()
     }
 }

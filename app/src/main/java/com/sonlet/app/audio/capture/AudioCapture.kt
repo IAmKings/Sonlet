@@ -70,6 +70,9 @@ interface AudioCapture {
     /** 当前已采集时长(毫秒);用于录音计时展示与上限判断 */
     val currentDurationMs: Long
 
+    /** 最近一个音频块的 RMS 电平,归一化到 0..1(P1 波形展示;非说话判定依据) */
+    val currentLevel: Float
+
     /** 停止并返回已采集音频;阻塞至读取循环收敛 */
     suspend fun stop(sessionId: Long): CaptureResult
 

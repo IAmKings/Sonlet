@@ -57,8 +57,10 @@ data class DictationUiState(
     val sessionId: Long? = null,
     val durationMs: Long = 0L,
     val errorCode: DictationErrorCode? = null,
-    /** 达到 30s 上限自动转写(界面据此提示“已达到录音上限”) */
+    /** 达到 30s 上限自动转写(界面据此提示”已达到录音上限”) */
     val durationCapped: Boolean = false,
+    /** 实时输入电平 0..1(真实采样 RMS;P1 波形展示,不作为说话判定) */
+    val volumeLevel: Float = 0f,
 ) {
     val isBusy: Boolean
         get() = phase == DictationPhase.PREPARING ||

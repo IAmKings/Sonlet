@@ -8,6 +8,7 @@ import com.sonlet.app.audio.capture.AudioCaptureErrorCode
 import com.sonlet.app.audio.capture.AudioCaptureException
 import com.sonlet.app.audio.capture.CaptureFailure
 import com.sonlet.app.audio.capture.CaptureOptions
+import com.sonlet.app.audio.vad.SpeechSegmenter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -45,8 +46,14 @@ class DictationController(
     private val modelVerification: suspend () -> ModelVerificationResult = {
         ModelVerificationResult.Ok
     },
-    private val scope: CoroutineScope,
     private val processor: TranscriptProcessor = VerbatimTranscriptProcessor(),
+    private val scope: CoroutineScope,
+    /** P1 风格选择(§12.2);交付时读取,运行中切换对当次交付生效 */
+    private val styleProvider: () -> DictationStyle = { DictationStyle.VERBATIM },
+    /** P1 FR-103 语音分段;null = 整段直送(行为与 P0 一致) */
+    private val speechSegmenter: SpeechSegmenter? = null,
+    /** 会话异常诊断出口;core 保持 android-free(PRD §7.3),宿主接 Log/SBOM 白名单 */
+    private val errorLogger: (Throwable) -> Unit = {},
 ) {
 
     private val commands = Channel<DictationCommand>(Channel.UNLIMITED)
@@ -64,6 +71,13 @@ class DictationController(
 
     @Volatile
     private var finishSignal: CompletableDeferred<Unit>? = null
+
+    /**
+     * 按住说话的"按下未启动完成即松开"(PRD §9.1 CC-02):
+     * STARTING 期间收到 Finish 时置位,启动成功进入 RECORDING 后立即结束。
+     */
+    @Volatile
+    private var pendingFinish = false
 
     private var started = false
 
@@ -92,8 +106,11 @@ class DictationController(
         val phase = _state.value.phase
         when (command) {
             DictationCommand.Start -> if (phase == DictationPhase.READY) startSession()
-            DictationCommand.Finish -> if (phase == DictationPhase.RECORDING) {
-                finishSignal?.complete(Unit)
+            DictationCommand.Finish -> when (phase) {
+                DictationPhase.RECORDING -> finishSignal?.complete(Unit)
+                // P1 按住说话:启动未完成时松开 → 启动成功后立即结束(CCID CC-02)
+                DictationPhase.STARTING -> pendingFinish = true
+                else -> Unit
             }
             DictationCommand.Cancel -> if (phase in CANCELLABLE_PHASES) cancelActive()
             DictationCommand.AppBackgrounded -> if (phase in CANCELLABLE_PHASES) cancelActive()
@@ -138,6 +155,7 @@ class DictationController(
 
     private fun startSession() {
         val sessionId = guard.beginSession()
+        pendingFinish = false
         _state.update {
             it.copy(
                 phase = DictationPhase.STARTING,
@@ -145,6 +163,7 @@ class DictationController(
                 durationMs = 0,
                 errorCode = null,
                 durationCapped = false,
+                volumeLevel = 0f,
             )
         }
         sessionJob = scope.launch { runSession(sessionId) }
@@ -159,6 +178,11 @@ class DictationController(
                 if (state.sessionId == sessionId) state.copy(phase = DictationPhase.RECORDING)
                 else state
             }
+            // pendingFinish:按下时启动尚未完成,松开已在 STARTING 置位 → 立即结束
+            if (pendingFinish) {
+                pendingFinish = false
+                finish.complete(Unit)
+            }
             var captureFailure: CaptureFailure? = null
             val failureCollector = scope.launch {
                 capture.errorEvents.collect {
@@ -171,9 +195,13 @@ class DictationController(
                     delay(DURATION_TICK_MS)
                     val duration = capture.currentDurationMs
                     if (duration >= captureOptions.maxDurationMs) finish.complete(Unit)
+                    val level = capture.currentLevel
                     _state.update { state ->
-                        if (state.sessionId == sessionId) state.copy(durationMs = duration)
-                        else state
+                        if (state.sessionId == sessionId) {
+                            state.copy(durationMs = duration, volumeLevel = level)
+                        } else {
+                            state
+                        }
                     }
                 }
             }
@@ -222,10 +250,12 @@ class DictationController(
             runCatching { capture.cancel(sessionId) }
             // 启动前被取消:属正常取消路径,不进入 ERROR(cleanup 会收敛到 READY)
             if (e.code != AudioCaptureErrorCode.CANCELLED) {
+                errorLogger(e)
                 enterError(e.toDictationError())
             }
         } catch (e: Exception) {
             runCatching { capture.cancel(sessionId) }
+            errorLogger(e)
             enterError(e.toDictationError())
         } finally {
             if (finishSignal === finish) finishSignal = null
@@ -233,17 +263,35 @@ class DictationController(
     }
 
     private suspend fun deliverTranscription(sessionId: Long, samples: FloatArray) {
-        val result = engine.transcribe(sessionId, samples, captureOptions.sampleRate)
-        val processed = processor.process(result.text)
+        // P1 FR-103:VAD 分段;无语音段时跳过识别直接走空结果路径
+        val segments = speechSegmenter
+            ?.segment(samples, captureOptions.sampleRate)
+            ?.segments
+            ?.filter { it.isNotEmpty() }
+            ?: listOf(samples)
+        if (segments.isEmpty()) {
+            _events.tryEmit(DictationEvent.TranscriptEmpty)
+            return
+        }
+        // 逐段转写;任一交付点被取消(会话失效)则中止,不再消耗推理
+        var joined = ""
+        var lastResultId = ""
+        for (segment in segments) {
+            if (!guard.canDeliver(sessionId)) return
+            val part = engine.transcribe(sessionId, segment, captureOptions.sampleRate)
+            joined = TextInsertionPolicy.joinTranscripts(joined, part.text)
+            lastResultId = part.resultId
+        }
+        val processed = processor.process(joined, styleProvider())
         if (processed.formatted.isEmpty()) {
             // 空结果:不改编辑框(AC-P0-013)
             _events.tryEmit(DictationEvent.TranscriptEmpty)
             return
         }
         // 结果交付唯一:代际 + resultId 双重校验(不变量 2/3,CC-03/CC-10)
-        if (guard.canDeliver(sessionId) && guard.markDelivered(sessionId, result.resultId)) {
+        if (guard.canDeliver(sessionId) && guard.markDelivered(sessionId, lastResultId)) {
             _events.tryEmit(
-                DictationEvent.TranscriptReady(sessionId, result.resultId, processed.formatted),
+                DictationEvent.TranscriptReady(sessionId, lastResultId, processed.formatted),
             )
         }
     }
@@ -251,6 +299,7 @@ class DictationController(
     private fun cancelActive() {
         val sessionId = _state.value.sessionId ?: return
         guard.invalidateAll()
+        pendingFinish = false
         val job = sessionJob
         _state.update { it.copy(phase = DictationPhase.CANCELLING) }
         cleanupJob?.cancel()
@@ -272,6 +321,7 @@ class DictationController(
 
     private fun finishToReady(sessionId: Long) {
         guard.endSession(sessionId)
+        pendingFinish = false
         _state.update { state ->
             if (state.sessionId == sessionId) {
                 state.copy(phase = DictationPhase.READY, sessionId = null, durationMs = 0)

@@ -155,4 +155,23 @@ class TextInsertionPolicyTest {
         assertEquals("你好", result.text)
         assertEquals(2, result.selection.end)
     }
+
+    // ---- P1 分段拼接(FR-106) ----
+
+    @Test
+    fun `joinTranscripts applies adjacency spacing rules`() {
+        // 汉字↔汉字:无空格
+        assertEquals("我。我", TextInsertionPolicy.joinTranscripts("我。", "我"))
+        // 拉丁↔拉丁:一个空格
+        assertEquals("hello world", TextInsertionPolicy.joinTranscripts("hello", "world"))
+        // 汉字↔拉丁:一个空格
+        assertEquals("今天 nice", TextInsertionPolicy.joinTranscripts("今天", "nice"))
+    }
+
+    @Test
+    fun `joinTranscripts passes through empty sides`() {
+        assertEquals("只有一段", TextInsertionPolicy.joinTranscripts("", "只有一段"))
+        assertEquals("只有一段", TextInsertionPolicy.joinTranscripts("只有一段", ""))
+        assertEquals("", TextInsertionPolicy.joinTranscripts("", ""))
+    }
 }

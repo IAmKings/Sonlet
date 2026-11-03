@@ -54,4 +54,14 @@
     <string name="a11y_recording_timer">Recorded %1$d seconds of 30</string>
     <string name="a11y_voice_button_start">Start voice input</string>
     <string name="a11y_voice_button_finish">Finish and transcribe</string>
+
+    <string name="btn_hold_to_talk">Hold to talk</string>
+    <string name="btn_release_to_transcribe">Release to transcribe</string>
+    <string name="mode_toggle_tap">Tap mode</string>
+    <string name="mode_toggle_hold">Hold mode</string>
+    <string name="style_verbatim">Verbatim</string>
+    <string name="style_natural">Natural</string>
+    <string name="style_concise">Concise</string>
+    <string name="style_notes">Notes</string>
+    <string name="a11y_waveform">Live recording level</string>
 </resources>

@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -58,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sonlet.app.R
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationPhase
+import com.sonlet.app.dictation.core.DictationStyle
 import com.sonlet.app.dictation.core.DictationUiState
 import java.util.Locale
 
@@ -118,6 +120,10 @@ fun DictationScreen(viewModel: DictationViewModel) {
         }
     }
 
+    // P1:交互模式与风格(DESIGN.md P1 边界:经验证的能力才展示入口)
+    var holdMode by remember { mutableStateOf(false) }
+    var style by remember { mutableStateOf(DictationStyle.VERBATIM) }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compact = maxWidth < 600.dp
         val horizontalPadding = if (compact) 16.dp else 24.dp
@@ -158,8 +164,19 @@ fun DictationScreen(viewModel: DictationViewModel) {
                         onKeepEditing = { permission.dismissRationale() },
                     )
                 }
+                if (state.phase == DictationPhase.READY) {
+                    StyleSelector(
+                        selected = style,
+                        onSelect = {
+                            style = it
+                            viewModel.setStyle(it)
+                        },
+                    )
+                }
                 ControlPanel(
                     state = state,
+                    holdMode = holdMode,
+                    onHoldModeChange = { holdMode = it },
                     modifier = Modifier.fillMaxWidth(),
                     onStart = onStartRequested,
                     onFinish = viewModel::finishDictation,
@@ -262,6 +279,8 @@ private fun Editor(
 @Composable
 private fun ControlPanel(
     state: DictationUiState,
+    holdMode: Boolean,
+    onHoldModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStart: () -> Unit,
     onFinish: () -> Unit,
@@ -281,14 +300,32 @@ private fun ControlPanel(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             StatusRow(state)
+            if (state.phase == DictationPhase.RECORDING) {
+                val waveformDescription = stringResource(R.string.a11y_waveform)
+                RecordingSurface(
+                    volumeLevel = state.volumeLevel,
+                    recording = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription = waveformDescription
+                        },
+                )
+            }
             ActionRow(
                 state = state,
+                holdMode = holdMode,
                 onStart = onStart,
                 onFinish = onFinish,
                 onCancel = onCancel,
                 onRetryModel = onRetryModel,
                 onDismissError = onDismissError,
                 onOpenSettings = onOpenSettings,
+            )
+            ModeToggleRow(
+                state = state,
+                holdMode = holdMode,
+                onHoldModeChange = onHoldModeChange,
             )
         }
     }
@@ -365,6 +402,7 @@ private fun StatusRow(state: DictationUiState) {
 @Composable
 private fun ActionRow(
     state: DictationUiState,
+    holdMode: Boolean,
     onStart: () -> Unit,
     onFinish: () -> Unit,
     onCancel: () -> Unit,
@@ -377,6 +415,24 @@ private fun ActionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // 按住说话模式(FR-101):READY/RECORDING 阶段由手势组件接管主按钮
+        if (holdMode && (state.phase == DictationPhase.READY ||
+                state.phase == DictationPhase.RECORDING)
+        ) {
+            if (state.phase == DictationPhase.RECORDING) {
+                NeutralTextButton(text = stringResource(R.string.btn_cancel), onClick = onCancel)
+            }
+            HoldToTalkButton(
+                state = state,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 56.dp),
+                onPressStart = onStart,
+                onPressRelease = onFinish,
+                onPressCancel = onCancel,
+            )
+            return@Row
+        }
         when (state.phase) {
             DictationPhase.READY -> PrimaryButton(
                 text = stringResource(R.string.btn_start),
@@ -536,6 +592,41 @@ internal fun formatTimer(durationMs: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return String.format(Locale.US, "%02d:%02d / 00:30", minutes, seconds)
+}
+
+/** P1 交互模式切换:仅 READY/RECORDING 展示;随时可切,行为对当前会话安全 */
+@Composable
+private fun ModeToggleRow(
+    state: DictationUiState,
+    holdMode: Boolean,
+    onHoldModeChange: (Boolean) -> Unit,
+) {
+    val toggleVisible = state.phase == DictationPhase.READY ||
+        state.phase == DictationPhase.RECORDING
+    if (!toggleVisible) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        TextButton(
+            onClick = { onHoldModeChange(false) },
+            enabled = holdMode,
+        ) {
+            Text(
+                stringResource(R.string.mode_toggle_tap),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        TextButton(
+            onClick = { onHoldModeChange(true) },
+            enabled = !holdMode,
+        ) {
+            Text(
+                stringResource(R.string.mode_toggle_hold),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
 }
 
 /** 界面图标:不把 Split S 当作功能图标(DESIGN.md §2);标准麦克风/停止形状 */

@@ -30,6 +30,17 @@
 | `useInverseTextNormalization` | `true` |
 | `language` | `auto` |
 
+## Silero VAD(P1 语音分段,随包内置)
+
+| 项 | 值 |
+|---|---|
+| 模型 | `silero_vad_v4.onnx`(1.7 MB,归档名 silero_vad_v4.onnx) |
+| URL | https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad_v4.onnx |
+| SHA-256 | `a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28` |
+| Kotlin API | `sherpa-onnx/kotlin-api/Vad.kt`(同 v2.0.1 tag) |
+| 参数 | threshold 0.5,minSilence 0.6s(防句间停顿截断,R-12),minSpeech 0.25s,maxSpeech 10s,window 512 |
+| 实测说明 | 归档 `silero_vad.onnx`(629KB)在 v2.0.1 JNI 下整段喂入仅产出 0.3s 段;v4 + 逐窗口(512)喂入 + 每窗排空验证正确(zh.wav 5.6s → 4.8s 语音段) |
+
 ## 工程工具链
 
 | 项 | 值 |

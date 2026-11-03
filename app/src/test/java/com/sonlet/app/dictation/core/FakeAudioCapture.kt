@@ -31,6 +31,10 @@ class FakeAudioCapture(
     @Volatile
     var currentDurationMsOverride: Long? = null
 
+    /** 波形展示测试用:注入固定输入电平 */
+    @Volatile
+    var currentLevelOverride: Float = 0f
+
     @Volatile
     private var activeSession: Long? = null
 
@@ -49,6 +53,9 @@ class FakeAudioCapture(
 
     override val currentDurationMs: Long
         get() = currentDurationMsOverride ?: 0L
+
+    override val currentLevel: Float
+        get() = currentLevelOverride
 
     override suspend fun start(sessionId: Long, options: CaptureOptions) {
         delay(startDelayMs)

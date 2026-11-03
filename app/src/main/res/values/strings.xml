@@ -62,4 +62,15 @@
     <string name="a11y_recording_timer">已录音 %1$d 秒,上限 30 秒</string>
     <string name="a11y_voice_button_start">开始语音输入</string>
     <string name="a11y_voice_button_finish">结束并转写</string>
+
+    <!-- P1:按住说话与风格(FR-101/104;规则处理非语义润色) -->
+    <string name="btn_hold_to_talk">按住说话</string>
+    <string name="btn_release_to_transcribe">松开转写</string>
+    <string name="mode_toggle_tap">点击模式</string>
+    <string name="mode_toggle_hold">按住模式</string>
+    <string name="style_verbatim">原文</string>
+    <string name="style_natural">自然</string>
+    <string name="style_concise">精简</string>
+    <string name="style_notes">笔记</string>
+    <string name="a11y_waveform">实时录音音量</string>
 </resources>

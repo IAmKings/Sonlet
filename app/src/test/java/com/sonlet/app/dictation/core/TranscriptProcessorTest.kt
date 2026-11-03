@@ -50,4 +50,63 @@ class TranscriptProcessorTest {
         assertEquals("  hi  ", result.raw)
         assertEquals("hi", result.formatted)
     }
+
+    // ---- P1 风格处理(§12.2:语言敏感、保守、变换可追溯) ----
+
+    @Test
+    fun `natural collapses repeated adjacent tokens`() {
+        val result = processor.process("嗯 这个 这个 方案 我觉得 可以", DictationStyle.NATURAL)
+        assertEquals("嗯 这个 方案 我觉得 可以", result.formatted)
+        assertTrue("collapse_repeated_tokens" in result.transformations)
+        // 原文保留,处理可逆
+        assertEquals("嗯 这个 这个 方案 我觉得 可以", result.raw)
+    }
+
+    @Test
+    fun `natural collapses triple char stutter but keeps two char reduplication`() {
+        assertEquals("我 觉得 好", processor.process("我我我 觉得 好", DictationStyle.NATURAL).formatted)
+        // 叠词名词不受损("笑笑"不折叠)
+        assertEquals("笑笑 说话", processor.process("笑笑 说话", DictationStyle.NATURAL).formatted)
+    }
+
+    @Test
+    fun `concise removes closed-set fillers`() {
+        val result = processor.process("嗯 这个 方案 呃 可以", DictationStyle.CONCISE)
+        assertEquals("这个 方案 可以", result.formatted)
+        assertTrue("remove_fillers" in result.transformations)
+    }
+
+    @Test
+    fun `concise keeps potentially semantic interjections`() {
+        // PRD §12.2:不盲目删除可能影响语义的词;"啊"不在封闭填充词表
+        assertEquals("啊 这样", processor.process("啊 这样", DictationStyle.CONCISE).formatted)
+    }
+
+    @Test
+    fun `concise is language sensitive for english fillers`() {
+        val result = processor.process("um this is uh good", DictationStyle.CONCISE)
+        assertEquals("this is good", result.formatted)
+    }
+
+    @Test
+    fun `notes splits sentences to lines`() {
+        val result = processor.process("第一句。第二句!第三句", DictationStyle.NOTES)
+        assertEquals("第一句\n第二句\n第三句", result.formatted)
+        assertTrue("split_to_lines" in result.transformations)
+    }
+
+    @Test
+    fun `all styles leave verbatim untouched`() {
+        val input = "嗯 这个 这个 原样 保留。"
+        val result = processor.process(input, DictationStyle.VERBATIM)
+        assertEquals(input, result.formatted)
+        assertTrue(result.transformations.isEmpty())
+    }
+
+    @Test
+    fun `style result becoming blank yields empty formatted`() {
+        val result = processor.process("嗯 呃", DictationStyle.CONCISE)
+        assertEquals("", result.formatted)
+        assertTrue("blank_after_style" in result.transformations)
+    }
 }

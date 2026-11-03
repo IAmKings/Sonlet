@@ -83,18 +83,30 @@ object TextInsertionPolicy {
         return needsSpaceBetween(transcript.last(), next)
     }
 
-    private fun needsSpaceBetween(prev: Char, next: Char): Boolean {
+    private fun needsSpaceBetween(prev: Char, next: Char): Boolean = spacingBetween(prev, next)
+
+    /**
+     * 两字符邻接处是否需要一个空格(P1 分段拼接与插入共用):
+     * 汉字↔汉字不加;至少一方为拉丁且双方均为文字字符时加;标点不加。
+     */
+    internal fun spacingBetween(prev: Char, next: Char): Boolean {
         val prevLatin = prev.isLatinLetterOrDigit()
         val nextLatin = next.isLatinLetterOrDigit()
         val prevHan = prev.isHanIdeograph()
         val nextHan = next.isHanIdeograph()
         return when {
-            // 汉字邻接汉字:不加空格
             prevHan && nextHan -> false
-            // 拉丁 ↔ 拉丁 / 汉字 ↔ 拉丁:加一个空格
             (prevLatin || prevHan) && (nextLatin || nextHan) -> true
             else -> false
         }
+    }
+
+    /** P1 分段转写结果拼接(FR-106):按邻接空格规则连接,忽略空段 */
+    fun joinTranscripts(a: String, b: String): String {
+        if (a.isEmpty()) return b
+        if (b.isEmpty()) return a
+        val space = spacingBetween(a.last(), b.first())
+        return if (space) "$a $b" else a + b
     }
 
     private fun Char.isLatinLetterOrDigit(): Boolean =

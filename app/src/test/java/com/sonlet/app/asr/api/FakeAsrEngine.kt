@@ -38,6 +38,14 @@ class FakeAsrEngine(
     @Volatile
     var transcribeText: String = "模拟转写文本"
 
+    /** 多段转写时按调用顺序弹出;为 null 时始终使用 transcribeText */
+    val transcribeTextQueue = ArrayDeque<String>()
+
+    private fun nextText(): String =
+        synchronized(transcribeTextQueue) {
+            transcribeTextQueue.removeFirstOrNull() ?: transcribeText
+        }
+
     /** 强制固定 resultId,用于重复交付去重测试(AC-P0-018) */
     @Volatile
     var fixedResultId: String? = null
@@ -97,7 +105,7 @@ class FakeAsrEngine(
         return AsrResult(
             sessionId = sessionId,
             resultId = fixedResultId ?: "fake-result-${RESULT_SEQ.incrementAndGet()}",
-            text = transcribeText,
+            text = nextText(),
             language = "zh",
             isFinal = true,
             decodeMs = transcribeDelayMs,
