@@ -2,6 +2,7 @@
 
 > 勾选表示对应证据已归档;未达项必须附阻塞级别与处理结论。
 > 证据目录:`docs/benchmarks/`(性能数据)、本文内嵌记录。
+> **T4-05 内测准入决策**:待决策人签署 `docs/release_decision.md`(含四项人工门槛:交付边界/语料/许可证签字/P2 授权;已附建议结论 Conditional Go)。
 
 ## G01 固定音频转写冒烟(目标机型 100% 通过)
 
@@ -31,7 +32,7 @@
 | AC-P0-017 推理异常 | [x] | 状态机注入测试 |
 | AC-P0-018 重复结果 | [x] | SessionGenerationGuardTest markDelivered 去重 |
 | AC-P0-019 连续稳定性 | [ ] | LongRunDictationStressTest 待真机执行 |
-| AC-P0-020 CER/WER 评估 | [ ] | 需 ≥30 条/类标注语料(人工环节) |
+| AC-P0-020 CER/WER 评估 | [ ] | 评测工装已就绪(docs/accuracy_eval.md + TextMetrics 8 项单测),待用户提供 ≥30 条/类标注语料后一键出报告;决策项见 docs/release_decision.md ② |
 | AC-P0-021 正常编辑不受影响 | [x] | 编辑器全阶段可编辑(实现保证);真机待复测 |
 | AC-P0-022 不支持格式 | [x] | 采样率校验 + UNSUPPORTED_AUDIO_FORMAT 测试 |
 | AC-P0-023 释放时未完成 decode | [x] | 引擎租约(decodeMutex)+ release 等待;并发仪器测试 |
