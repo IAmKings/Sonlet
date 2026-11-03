@@ -12,3 +12,9 @@ date,device,phase,asset,audioMs,decodeMs,rtf,loadMs
 # 100 轮长稳(AC-P0-019):nativeKB 279779→283704(r20)→283878(r40)→283880(r60)→283877(r80)→283880(r100) 无泄漏趋势
 2026-11-04,emulator-arm64-api35,stress-100-rounds,delivered=78 short=2,0,0,0,
 # 真机 Xiaomi 23078PND5G E2E:30s 自动转写 RTF 0.054,插入与 CJK 空格规则验证
+# 真机复跑(Xiaomi 23078PND5G,含 P1 VAD 接入)
+2026-11-04,Xiaomi 23078PND5G,load,,,,,1133
+2026-11-04,Xiaomi 23078PND5G,transcribe-p1,zh.wav,5592,368,0.066,
+2026-11-04,Xiaomi 23078PND5G,transcribe-p1,en.wav,7152,452,0.063,
+# 真机 100 轮长稳(AC-P0-019):nativeKB 332904(r40)→333378(r60)→333325(r80)→333331(r100) 走平
+2026-11-04,Xiaomi 23078PND5G,stress-100-rounds-p1,delivered=60 short=20,0,0,0,
