@@ -16,9 +16,9 @@
 | AC-P0-002 完全离线识别 | [x] | 仪器测试无网络依赖 + Manifest 无 INTERNET 权限;飞行模式实测见 G04 |
 | AC-P0-003 拒绝授权 | [x] | 权限路径单测兜底 + 就近说明面;真机待复测记录 |
 | AC-P0-004 永久拒绝恢复 | [x] | 设置路径 + ON_RESUME 刷新;真机待复测记录 |
-| AC-P0-005 正常录音状态链 | [x] | 状态机测试 + 真机 E2E |
+| AC-P0-005 正常录音状态链 | [x] | 状态机测试 + 模拟器 UI E2E(Start→RECORDING 计时→自动转写→READY) |
 | AC-P0-006 300ms 误触 | [x] | TooShort 路径单测;真机待复测 |
-| AC-P0-007 30s 上限 | [x] | AudioRecordLifecycleTest durationCapAutoStopsRecording |
+| AC-P0-007 30s 上限 | [x] | AudioRecordLifecycleTest + 模拟器 UI 两次真实触发(logcat capped=true) |
 | AC-P0-008 录音中取消 | [x] | 状态机测试 |
 | AC-P0-009 推理中取消 | [x] | 状态机测试 cancel during transcription |
 | AC-P0-010 连续快速点击 | [x] | 状态机测试 20 轮 |
@@ -39,11 +39,13 @@
 
 ## G03 100 次连续会话
 
-- [ ] LongRunDictationStressTest 真机执行记录(含 PSS 趋势)
+- [x] 模拟器 arm64(API 35)执行通过:100 轮录音/转写/取消混合,无 JNI 崩溃;native 堆 283.7MB 后走平(40 轮起零增长),交付 78/空或过短 2(logcat SonletStress,2026-11-04)
+- [ ] 真机复跑记录(设备暂离线,待补)
 
 ## G04 飞行模式冷启动到语音输入成功
 
-- [ ] 飞行模式实测记录(仪器测试无网络路径已验证;待人工 UI 实测)
+- [x] 飞行模式下 SherpaModelSmokeTest 全绿:zh/en 固定样本离线转写成功(RTF 0.064/0.036,2026-11-04);App 无 INTERNET 权限,结构上不可发起云端请求
+- [ ] 从未联网安装的冷启动人工实测记录
 
 ## G05 权限拒绝/切后台/打断可恢复
 
