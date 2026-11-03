@@ -2,12 +2,13 @@
 
 **Speak locally. Build freely.**
 
-面向 Android 的轻量端侧语音工具集。本仓库已完成 P0 实现与真机验证:App 内点击录音、本地 SenseVoice INT8 转写、结果插入当前编辑框;完全离线,不申请 INTERNET 权限。
+面向 Android 的轻量端侧语音工具集。P0 闭环与 P1 交互增强均已实现并在真机/模拟器验证:点击或按住录音、本地 SenseVoice INT8 转写、Silero VAD 分段、文本风格处理、结果插入当前编辑框;完全离线,不申请 INTERNET 权限。
 
 - [设计系统与交互规范](DESIGN.md)
 - [产品需求与技术方案](docs/Hex_Android_Offline_ASR_PRD_v1.0.md)
 - [第三方版本锁定清单](docs/third_party_versions.md)
 - [第三方许可证清单](docs/third_party_licenses.md)
+- [发布门检查清单](docs/release_checklist.md)
 - [标识使用指南](docs/brand/sonlet-logo-kit/使用指南.md)
 
 ## 工程结构
@@ -59,13 +60,13 @@ scripts/fetch_model.sh
 
 安装到真机:`adb install -r app/build/outputs/apk/debug/app-debug.apk`,或直接在 Android Studio 运行。首次启动自动进行模型 SHA-256 校验(约 1–2 秒),通过后进入 READY。
 
-## 已知限制(P0,如实记录)
+## 已知限制(P0/P1,如实记录)
 
 - 仅 arm64-v8a;其他 ABI 设备未包含原生库。
-- 通话打断的系统性检测未实现音频焦点协作,依赖采集读取失败路径兜底(PRD AC-P0-015 的蓝牙/拔线场景已覆盖)。
-- 模型许可证(FunASR/SenseVoice)与 ONNX Runtime 的再分发条款复核仍为 PENDING,产物仅限内部验证使用(见 docs/third_party_licenses.md)。
+- 通话打断的系统性检测未实现音频焦点协作,依赖采集读取失败路径兜底(蓝牙/拔线场景已覆盖)。
+- 模型许可证(FunASR/SenseVoice/Silero VAD)与 ONNX Runtime 的再分发条款复核仍为 PENDING,产物仅限内部验证使用(见 docs/third_party_licenses.md)。
 - 中英混说准确率未做数据集评估(AC-P0-020 需人工语料)。
-- P1(按住说话/波形/VAD/风格处理)与 P2(流式/多模型/下载)未实现。
+- P2(流式/多引擎/模型下载/AAR SDK)未实现。
 
 ## Git 提交
 
