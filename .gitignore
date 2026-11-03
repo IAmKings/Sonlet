@@ -21,6 +21,9 @@ __pycache__/
 /app/src/main/assets/sensevoice/
 /cache/
 
+# 用户语料录音不入库(AC-P0-020),manifest.csv 模板入库
+/app/src/androidTest/assets/corpus/*.wav
+
 # 本地构建下载缓存
 /.cache/
 

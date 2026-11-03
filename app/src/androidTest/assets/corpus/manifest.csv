@@ -1,0 +1,7 @@
+# file,lang,ground_truth
+# 格式:文件名,语言(zh/en/mixed),标注真值;以 # 开头的行被忽略
+# 将对应 16kHz 单声道 wav 放在本目录(与 manifest.csv 同级,文件名对应第一列)
+# 示例:
+# zh_001.wav,zh,今天天气不错我们去公园散步
+# en_001.wav,en,The tribal chieftain called for the boy
+# mix_001.wav,mixed,我用GitHub提交了这个feature
