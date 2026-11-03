@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sonlet</string>
+    <string name="m0_baseline_title">Sonlet 工程基线</string>
+    <string name="m0_model_check_running">正在检查离线语音模型…</string>
+    <string name="m0_model_check_ok">离线语音模型已就绪(%1$s)</string>
+    <string name="m0_model_check_missing">离线语音模型缺失或损坏,请检查安装包</string>
+</resources>

@@ -17,6 +17,13 @@
 # 本地测试缓存
 __pycache__/
 
+# 模型二进制不入库:由 scripts/fetch_model.sh 校验下载(PRD §11)
+/app/src/main/assets/sensevoice/
+/cache/
+
+# 本地构建下载缓存
+/.cache/
+
 # 本地环境配置
 /.env
 /.env.*

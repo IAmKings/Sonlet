@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Split S 前景:取自 docs/brand/sonlet-logo-kit/digital/sonlet-symbol-app-icon.svg
+     原 transform translate(21.12 21.12) scale(0.835) 折算为 group 平移/缩放 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <group
+        android:scaleX="0.835"
+        android:scaleY="0.835"
+        android:translateX="25.29"
+        android:translateY="25.29">
+        <path
+            android:fillColor="#F59C7E"
+            android:pathData="M208,33H92A43,43 0,0 0,92 119H152L182,89H92A13,13 0,0 1,92 63H208Z M48,223H164A43,43 0,0 0,164 137H104L74,167H164A13,13 0,0 1,164 193H48Z" />
+    </group>
+</vector>
