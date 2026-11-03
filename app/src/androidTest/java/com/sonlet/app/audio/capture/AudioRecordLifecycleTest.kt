@@ -3,9 +3,11 @@ package com.sonlet.app.audio.capture
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -16,6 +18,10 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class AudioRecordLifecycleTest {
+
+    @get:Rule
+    val permissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
 
     private val context: Context = InstrumentationRegistry.getInstrumentation()
         .targetContext.applicationContext
@@ -48,6 +54,7 @@ class AudioRecordLifecycleTest {
         recorder.cancel(2L)
         // 取消后可立即重新启动(幂等释放)
         recorder.start(3L, options)
+        Thread.sleep(400)
         val result = recorder.stop(3L)
         assertTrue(result.samples.isNotEmpty())
         recorder.dispose()

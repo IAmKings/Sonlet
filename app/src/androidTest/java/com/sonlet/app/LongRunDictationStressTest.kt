@@ -4,6 +4,7 @@ import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
 import com.sonlet.app.asr.sherpa.ModelInstallStatus
 import com.sonlet.app.asr.sherpa.ModelRepository
 import com.sonlet.app.asr.sherpa.SherpaSenseVoiceEngine
@@ -22,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -34,13 +36,17 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LongRunDictationStressTest {
 
+    @get:Rule
+    val permissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+
     companion object {
         const val TOTAL_ROUNDS = 100
         const val TAG = "SonletStress"
     }
 
     @Test
-    fun hundredSessionsWithoutResourceLeak() = runBlocking {
+    fun hundredSessionsWithoutResourceLeak(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation()
             .targetContext.applicationContext
         val repo = ModelRepository(context.assets)

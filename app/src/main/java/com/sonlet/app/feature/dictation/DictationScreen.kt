@@ -294,6 +294,20 @@ private fun ControlPanel(
     }
 }
 
+/** 中性文字按钮(DESIGN.md §7:取消不用品牌主色,避免与主动作混淆) */
+@Composable
+private fun NeutralTextButton(text: String, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
 @Composable
 private fun StatusRow(state: DictationUiState) {
     Row(
@@ -372,7 +386,7 @@ private fun ActionRow(
                 modifier = Modifier.weight(1f),
             )
             DictationPhase.RECORDING -> {
-                TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
+                NeutralTextButton(text = stringResource(R.string.btn_cancel), onClick = onCancel)
                 PrimaryButton(
                     text = stringResource(R.string.btn_finish),
                     icon = SonletIcons.Stop,
@@ -382,7 +396,7 @@ private fun ActionRow(
                 )
             }
             DictationPhase.STARTING -> {
-                TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
+                NeutralTextButton(text = stringResource(R.string.btn_cancel), onClick = onCancel)
                 PrimaryButton(
                     text = stringResource(R.string.btn_state_starting),
                     icon = null,
@@ -392,7 +406,7 @@ private fun ActionRow(
                 )
             }
             DictationPhase.TRANSCRIBING -> {
-                TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
+                NeutralTextButton(text = stringResource(R.string.btn_cancel), onClick = onCancel)
                 PrimaryButton(
                     text = stringResource(R.string.btn_state_transcribing),
                     icon = null,
@@ -416,9 +430,10 @@ private fun ActionRow(
                 modifier = Modifier.weight(1f),
             )
             DictationPhase.ERROR -> {
-                TextButton(onClick = onDismissError) {
-                    Text(stringResource(R.string.btn_back_to_edit))
-                }
+                NeutralTextButton(
+                    text = stringResource(R.string.btn_back_to_edit),
+                    onClick = onDismissError,
+                )
                 val isPermissionError =
                     state.errorCode == DictationErrorCode.MIC_PERMISSION_DENIED ||
                         state.errorCode == DictationErrorCode.MIC_PERMISSION_REVOKED
