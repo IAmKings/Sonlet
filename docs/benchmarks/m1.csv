@@ -5,3 +5,10 @@ date,device,phase,asset,audioMs,decodeMs,rtf,loadMs
 2026-11-04,Xiaomi 23078PND5G,load,,,,,1158
 2026-11-04,Xiaomi 23078PND5G,transcribe,zh.wav,5592,253,0.045,
 2026-11-04,Xiaomi 23078PND5G,transcribe,en.wav,7152,285,0.040,
+# 补充:模拟器 arm64 (sdk_gphone64_arm64, API 35) 与飞行模式验证
+2026-11-04,emulator-arm64-api35,load,,,,,,
+2026-11-04,emulator-arm64-api35,transcribe-airplane-mode,zh.wav,5592,360,0.064,
+2026-11-04,emulator-arm64-api35,transcribe-airplane-mode,en.wav,7152,254,0.036,
+# 100 轮长稳(AC-P0-019):nativeKB 279779→283704(r20)→283878(r40)→283880(r60)→283877(r80)→283880(r100) 无泄漏趋势
+2026-11-04,emulator-arm64-api35,stress-100-rounds,delivered=78 short=2,0,0,0,
+# 真机 Xiaomi 23078PND5G E2E:30s 自动转写 RTF 0.054,插入与 CJK 空格规则验证
