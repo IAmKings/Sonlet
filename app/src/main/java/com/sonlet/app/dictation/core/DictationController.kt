@@ -218,6 +218,12 @@ class DictationController(
             // 取消/后台:capture.cancel 保证 AudioRecord 必然释放(不变量 7)
             runCatching { capture.cancel(sessionId) }
             throw e
+        } catch (e: AudioCaptureException) {
+            runCatching { capture.cancel(sessionId) }
+            // 启动前被取消:属正常取消路径,不进入 ERROR(cleanup 会收敛到 READY)
+            if (e.code != AudioCaptureErrorCode.CANCELLED) {
+                enterError(e.toDictationError())
+            }
         } catch (e: Exception) {
             runCatching { capture.cancel(sessionId) }
             enterError(e.toDictationError())
