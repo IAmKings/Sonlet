@@ -28,6 +28,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // G08 验证用途:本地以 debug 签名跑 Release 构建;正式分发前替换专用签名
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -74,6 +76,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
