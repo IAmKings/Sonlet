@@ -1,0 +1,7 @@
+# M1 性能基线(PRD T1-04);来源:SherpaModelSmokeTest logcat(SonletSmoke)
+# 设备:Xiaomi 23078PND5G (corot), Android 14 (SDK 34), arm64-v8a
+# 模型:sensevoice-small-int8-2024-07-17;numThreads=2,provider=cpu
+date,device,phase,asset,audioMs,decodeMs,rtf,loadMs
+2026-11-04,Xiaomi 23078PND5G,load,,,,,1158
+2026-11-04,Xiaomi 23078PND5G,transcribe,zh.wav,5592,253,0.045,
+2026-11-04,Xiaomi 23078PND5G,transcribe,en.wav,7152,285,0.040,

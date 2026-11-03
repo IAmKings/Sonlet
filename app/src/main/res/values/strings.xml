@@ -1,8 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 品牌与页头(DESIGN.md §5:演示 App 带小型标识文案) -->
     <string name="app_name">Sonlet</string>
-    <string name="m0_baseline_title">Sonlet 工程基线</string>
-    <string name="m0_model_check_running">正在检查离线语音模型…</string>
-    <string name="m0_model_check_ok">离线语音模型已就绪(%1$s)</string>
-    <string name="m0_model_check_missing">离线语音模型缺失或损坏,请检查安装包</string>
+    <string name="header_subtitle">本地转写</string>
+
+    <!-- 编辑器(DESIGN.md §5:占位提示) -->
+    <string name="editor_placeholder">写点什么,或使用语音输入。</string>
+
+    <!-- 状态文案(DESIGN.md §6 状态表) -->
+    <string name="status_preparing">正在准备离线语音模型</string>
+    <string name="status_ready">可以开始语音输入</string>
+    <string name="status_starting">正在开启麦克风</string>
+    <string name="status_recording">正在聆听…</string>
+    <string name="status_transcribing">正在本地转写…</string>
+    <string name="status_cancelling">正在停止…</string>
+    <string name="status_error">无法完成语音输入:%1$s</string>
+
+    <!-- 操作(DESIGN.md §6/§7:主按钮禁用时保留语义) -->
+    <string name="btn_start">开始语音输入</string>
+    <string name="btn_finish">结束并转写</string>
+    <string name="btn_cancel">取消</string>
+    <string name="btn_retry">重试</string>
+    <string name="btn_back_to_edit">返回编辑</string>
+    <string name="btn_open_settings">打开设置</string>
+    <string name="btn_state_preparing">准备中</string>
+    <string name="btn_state_starting">正在开启</string>
+    <string name="btn_state_transcribing">转写中</string>
+    <string name="btn_state_stopping">正在停止</string>
+
+    <!-- 轻提示(Snackbar,DESIGN.md §7) -->
+    <string name="msg_inserted">已插入识别文字</string>
+    <string name="msg_empty">未检测到可识别语音</string>
+    <string name="msg_too_short">录音太短,请再试一次</string>
+    <string name="msg_duration_capped">已达到录音上限,正在本地转写</string>
+    <string name="msg_route_changed">音频设备已变化,请重新开始</string>
+
+    <!-- 错误原因(PRD §10.4 → 用户文案,DESIGN.md §7) -->
+    <string name="err_MIC_PERMISSION_DENIED">请允许麦克风权限</string>
+    <string name="err_MIC_PERMISSION_REVOKED">麦克风权限已关闭</string>
+    <string name="err_MIC_BUSY">麦克风暂时不可用</string>
+    <string name="err_AUDIO_INIT_FAILED">无法启动录音</string>
+    <string name="err_AUDIO_READ_FAILED">录音中断</string>
+    <string name="err_AUDIO_ROUTE_CHANGED">音频设备已变化</string>
+    <string name="err_MODEL_NOT_FOUND">离线模型不可用</string>
+    <string name="err_MODEL_CORRUPTED">模型文件损坏</string>
+    <string name="err_MODEL_LOAD_FAILED">无法加载离线模型</string>
+    <string name="err_ASR_EMPTY_RESULT">没有识别出语音</string>
+    <string name="err_ASR_DECODE_FAILED">识别失败</string>
+    <string name="err_AUDIO_TOO_SHORT">录音太短</string>
+    <string name="err_AUDIO_TOO_LONG">已达到录音上限</string>
+    <string name="err_SESSION_CANCELLED">已取消语音输入</string>
+    <string name="err_UNSUPPORTED_AUDIO_FORMAT">设备暂不支持当前录音格式</string>
+
+    <!-- 权限说明(DESIGN.md §7:就近说明面) -->
+    <string name="permission_title">允许麦克风权限</string>
+    <string name="permission_rationale">允许麦克风权限后,可在设备上进行语音转写。录音仅在本机处理,不会上传。</string>
+    <string name="permission_denied_once">未授权麦克风,语音输入不可用。您可以继续手动输入。</string>
+    <string name="permission_denied_permanent">麦克风权限未开启或已关闭。请在系统设置中允许后返回。</string>
+
+    <!-- 计时无障碍(DESIGN.md §8:不逐帧播报) -->
+    <string name="a11y_recording_timer">已录音 %1$d 秒,上限 30 秒</string>
+    <string name="a11y_voice_button_start">开始语音输入</string>
+    <string name="a11y_voice_button_finish">结束并转写</string>
 </resources>
