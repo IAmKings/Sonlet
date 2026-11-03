@@ -1,0 +1,42 @@
+
+=== concept-a-symbol-v2.svg  (332 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #000000 · gradients 0 · anchors 18
+margins L48.0 R48.0 T32.0 B32.0 · bbox fill 0.469
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== concept-b-symbol-v2.svg  (454 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #000000 · gradients 0 · anchors 30
+margins L32.0 R32.0 T32.0 B32.0 · bbox fill 0.562
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== concept-c-symbol-v2.svg  (361 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #000000 · gradients 0 · anchors 18
+margins L48.0 R32.0 T32.0 B32.0 · bbox fill 0.516
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 32.0). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== concept-a-lockup-v2.svg  (1491 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 95
+margins L48.0 R24.4 T32.0 B32.0 · bbox fill 0.678
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== concept-b-lockup-v2.svg  (1613 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 107
+margins L32.0 R24.4 T32.0 B32.0 · bbox fill 0.694
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== concept-c-lockup-v2.svg  (1520 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 95
+margins L48.0 R24.4 T32.0 B32.0 · bbox fill 0.678
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)

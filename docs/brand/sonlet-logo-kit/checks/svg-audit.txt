@@ -1,0 +1,253 @@
+
+=== sonlet-favicon-tile.svg  (411 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 2: #202b28 #f7f5ef · gradients 0 · anchors 27
+margins L0.0 R0.0 T0.0 B0.0 · bbox fill 1.0
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-maskable.svg  (419 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 2: #202b28 #f59c7e · gradients 0 · anchors 23
+margins L0.0 R0.0 T0.0 B0.0 · bbox fill 1.0
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-master.svg  (313 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #bc482f · gradients 0 · anchors 18
+margins L48.0 R48.0 T32.0 B32.0 · bbox fill 0.469
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-reversed.svg  (357 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #ffffff · gradients 0 · anchors 18
+margins L48.0 R48.0 T33.0 B33.0 · bbox fill 0.464
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-small.svg  (316 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #bc482f · gradients 0 · anchors 18
+margins L32.0 R32.0 T32.0 B32.0 · bbox fill 0.562
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-web-tile.svg  (419 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 2: #202b28 #f59c7e · gradients 0 · anchors 23
+margins L0.0 R0.0 T0.0 B0.0 · bbox fill 1.0
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-horizontal-black.svg  (1455 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 95
+margins L48.0 R24.4 T32.0 B32.0 · bbox fill 0.678
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== sonlet-horizontal-color.svg  (1455 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 2: #bc482f #202b28 · gradients 0 · anchors 95
+margins L48.0 R24.4 T32.0 B32.0 · bbox fill 0.678
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== sonlet-horizontal-dark.svg  (1453 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 2: #f59c7e #f7f5ef · gradients 0 · anchors 95
+margins L48.0 R24.4 T33.0 B33.0 · bbox fill 0.671
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== sonlet-horizontal-mono.svg  (1453 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #bc482f · gradients 0 · anchors 95
+margins L48.0 R24.4 T32.0 B32.0 · bbox fill 0.678
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== sonlet-horizontal-white.svg  (1455 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #ffffff · gradients 0 · anchors 95
+margins L48.0 R24.4 T33.0 B33.0 · bbox fill 0.671
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 99/100 (heuristic)
+
+=== sonlet-stacked-black.svg  (1472 bytes)
+viewBox 0 0 400 392 · aspect 1.02 (square)
+colours 1: #000000 · gradients 0 · anchors 95
+margins L29.0 R32.0 T32.0 B33.0 · bbox fill 0.707
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-stacked-color.svg  (1472 bytes)
+viewBox 0 0 400 392 · aspect 1.02 (square)
+colours 2: #bc482f #202b28 · gradients 0 · anchors 95
+margins L29.0 R32.0 T32.0 B33.0 · bbox fill 0.707
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-stacked-dark.svg  (1470 bytes)
+viewBox 0 0 400 392 · aspect 1.02 (square)
+colours 2: #f59c7e #f7f5ef · gradients 0 · anchors 95
+margins L29.0 R32.0 T33.0 B33.0 · bbox fill 0.705
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-stacked-mono.svg  (1470 bytes)
+viewBox 0 0 400 392 · aspect 1.02 (square)
+colours 1: #bc482f · gradients 0 · anchors 95
+margins L29.0 R32.0 T32.0 B33.0 · bbox fill 0.707
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-stacked-white.svg  (1472 bytes)
+viewBox 0 0 400 392 · aspect 1.02 (square)
+colours 1: #ffffff · gradients 0 · anchors 95
+margins L29.0 R32.0 T33.0 B33.0 · bbox fill 0.705
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-app-icon.svg  (414 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 2: #202b28 #f59c7e · gradients 0 · anchors 27
+margins L0.0 R0.0 T0.0 B0.0 · bbox fill 1.0
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-black.svg  (329 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #000000 · gradients 0 · anchors 18
+margins L48.0 R48.0 T32.0 B32.0 · bbox fill 0.469
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-color.svg  (329 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #bc482f · gradients 0 · anchors 18
+margins L48.0 R48.0 T32.0 B32.0 · bbox fill 0.469
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-dark.svg  (327 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #f59c7e · gradients 0 · anchors 18
+margins L48.0 R48.0 T33.0 B33.0 · bbox fill 0.464
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-mono.svg  (327 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #bc482f · gradients 0 · anchors 18
+margins L48.0 R48.0 T32.0 B32.0 · bbox fill 0.469
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-square.svg  (334 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #bc482f · gradients 0 · anchors 18
+margins L38.4 R38.4 T20.5 B20.5 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-symbol-white.svg  (329 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 1: #ffffff · gradients 0 · anchors 18
+margins L48.0 R48.0 T33.0 B33.0 · bbox fill 0.464
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-tagline-black.svg  (5584 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 398
+margins L48.0 R24.4 T32.0 B28.4 · bbox fill 0.691
+▲ WARN [complex] 398 anchor points — more than 95% of comparable reference logos (median 75.0). Simplify: fewer points, merged shapes, less detail.
+▲ WARN [tiny-detail] 3 sub-shape(s) smaller than 1/32 of the lockup height (≈1 px at 32 px tall): 3.6×3.9 at (501,217); 3.6×3.9 at (559,195); 3.6×3.9 at (706,217). They vanish when small — enlarge, merge or remove them, or provide a small-size version.
+· INFO [precision] Coordinates with 4+ decimals: round to 0–2 decimals to reduce size and reveal misalignments.
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 82/100 (heuristic)
+
+=== sonlet-tagline-color.svg  (5584 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 2: #bc482f #202b28 · gradients 0 · anchors 398
+margins L48.0 R24.4 T32.0 B28.4 · bbox fill 0.691
+▲ WARN [complex] 398 anchor points — more than 95% of comparable reference logos (median 75.0). Simplify: fewer points, merged shapes, less detail.
+▲ WARN [tiny-detail] 3 sub-shape(s) smaller than 1/32 of the lockup height (≈1 px at 32 px tall): 3.6×3.9 at (501,217); 3.6×3.9 at (559,195); 3.6×3.9 at (706,217). They vanish when small — enlarge, merge or remove them, or provide a small-size version.
+· INFO [precision] Coordinates with 4+ decimals: round to 0–2 decimals to reduce size and reveal misalignments.
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 82/100 (heuristic)
+
+=== sonlet-tagline-dark.svg  (5582 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 2: #f59c7e #f7f5ef · gradients 0 · anchors 398
+margins L48.0 R24.4 T33.0 B28.4 · bbox fill 0.688
+▲ WARN [complex] 398 anchor points — more than 95% of comparable reference logos (median 75.0). Simplify: fewer points, merged shapes, less detail.
+▲ WARN [tiny-detail] 3 sub-shape(s) smaller than 1/32 of the lockup height (≈1 px at 32 px tall): 3.6×3.9 at (501,217); 3.6×3.9 at (559,195); 3.6×3.9 at (706,217). They vanish when small — enlarge, merge or remove them, or provide a small-size version.
+· INFO [precision] Coordinates with 4+ decimals: round to 0–2 decimals to reduce size and reveal misalignments.
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 82/100 (heuristic)
+
+=== sonlet-tagline-mono.svg  (5582 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #bc482f · gradients 0 · anchors 398
+margins L48.0 R24.4 T32.0 B28.4 · bbox fill 0.691
+▲ WARN [complex] 398 anchor points — more than 95% of comparable reference logos (median 75.0). Simplify: fewer points, merged shapes, less detail.
+▲ WARN [tiny-detail] 3 sub-shape(s) smaller than 1/32 of the lockup height (≈1 px at 32 px tall): 3.6×3.9 at (501,217); 3.6×3.9 at (559,195); 3.6×3.9 at (706,217). They vanish when small — enlarge, merge or remove them, or provide a small-size version.
+· INFO [precision] Coordinates with 4+ decimals: round to 0–2 decimals to reduce size and reveal misalignments.
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 82/100 (heuristic)
+
+=== sonlet-tagline-white.svg  (5584 bytes)
+viewBox 0 0 758 256 · aspect 2.961 (horizontal)
+colours 1: #ffffff · gradients 0 · anchors 398
+margins L48.0 R24.4 T33.0 B28.4 · bbox fill 0.688
+▲ WARN [complex] 398 anchor points — more than 95% of comparable reference logos (median 75.0). Simplify: fewer points, merged shapes, less detail.
+▲ WARN [tiny-detail] 3 sub-shape(s) smaller than 1/32 of the lockup height (≈1 px at 32 px tall): 3.6×3.9 at (501,217); 3.6×3.9 at (559,195); 3.6×3.9 at (706,217). They vanish when small — enlarge, merge or remove them, or provide a small-size version.
+· INFO [precision] Coordinates with 4+ decimals: round to 0–2 decimals to reduce size and reveal misalignments.
+· INFO [off-centre-x] Horizontal margins differ (left 48.0, right 24.4). Intentional optical centring? Otherwise centre it.
+production-readiness score: 82/100 (heuristic)
+
+=== sonlet-wordmark-black.svg  (1274 bytes)
+viewBox 0 0 374 128 · aspect 2.922 (horizontal)
+colours 1: #000000 · gradients 0 · anchors 77
+margins L16.0 R19.0 T22.0 B23.0 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-wordmark-color.svg  (1274 bytes)
+viewBox 0 0 374 128 · aspect 2.922 (horizontal)
+colours 1: #202b28 · gradients 0 · anchors 77
+margins L16.0 R19.0 T22.0 B23.0 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-wordmark-dark.svg  (1272 bytes)
+viewBox 0 0 374 128 · aspect 2.922 (horizontal)
+colours 1: #f7f5ef · gradients 0 · anchors 77
+margins L16.0 R19.0 T22.0 B23.0 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-wordmark-mono.svg  (1272 bytes)
+viewBox 0 0 374 128 · aspect 2.922 (horizontal)
+colours 1: #bc482f · gradients 0 · anchors 77
+margins L16.0 R19.0 T22.0 B23.0 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== sonlet-wordmark-white.svg  (1274 bytes)
+viewBox 0 0 374 128 · aspect 2.922 (horizontal)
+colours 1: #ffffff · gradients 0 · anchors 77
+margins L16.0 R19.0 T22.0 B23.0 · bbox fill 0.588
+✔ no issues found
+production-readiness score: 100/100 (heuristic)
+
+=== favicon.svg  (411 bytes)
+viewBox 0 0 256 256 · aspect 1.0 (square)
+colours 2: #202b28 #f7f5ef · gradients 0 · anchors 27
+margins L0.0 R0.0 T0.0 B0.0 · bbox fill 1.0
+✔ no issues found
+production-readiness score: 100/100 (heuristic)

@@ -1,0 +1,27 @@
+# 系统与编辑器临时文件
+.DS_Store
+*.swp
+*.swo
+*~
+/.idea/
+*.iml
+
+# Android 本地配置与构建产物
+/local.properties
+/.gradle/
+/.kotlin/
+**/build/
+*.jks
+*.keystore
+
+# 本地测试缓存
+__pycache__/
+
+# 本地环境配置
+/.env
+/.env.*
+!/.env.example
+/.local/
+
+# 标识包可由已跟踪的目录内容重新打包
+/docs/brand/*.zip

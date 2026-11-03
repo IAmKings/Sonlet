@@ -1,0 +1,56 @@
+{
+  "brand": "Sonlet",
+  "tagline": "Speak locally. Build freely.",
+  "date": "2026-11-04",
+  "brief": "A lightweight on-device speech toolkit for Android. Built for developers who value local capability and the freedom to build.",
+  "adjectives": [
+    "compact",
+    "capable",
+    "approachable",
+    "independent"
+  ],
+  "criteria": "Two speech turns form one modular S. Clear at small sizes; useful in a repository, documentation and an Android demo app.",
+  "industry": "software",
+  "mockups": [
+    "readme",
+    "app-icon",
+    "website",
+    "terminal",
+    "sticker",
+    "social"
+  ],
+  "nav": [
+    "Toolkit",
+    "Documentation",
+    "Examples"
+  ],
+  "brand_color": "#BC482F",
+  "tile_color": "#202B28",
+  "greyscale": false,
+  "final": true,
+  "deck_title": "Split S \u00b7 identity",
+  "concepts": [
+    {
+      "name": "Split S",
+      "symbol": "../digital/sonlet-symbol-color.svg",
+      "lockup": "../digital/sonlet-horizontal-color.svg",
+      "stacked": "../digital/sonlet-stacked-color.svg",
+      "avatar": "../source/sonlet-symbol-small.svg",
+      "symbol_on_tile": "../digital/sonlet-symbol-dark.svg",
+      "symbol_on_dark": "../digital/sonlet-symbol-dark.svg",
+      "lockup_on_dark": "../digital/sonlet-horizontal-dark.svg",
+      "idea": "Two speech turns, one modular S.",
+      "rationale": [
+        "A direct link to the Sonlet name.",
+        "Circular returns balance precise 45\u00b0 terminals.",
+        "Terracotta adds warmth; ink keeps the toolkit grounded."
+      ]
+    }
+  ],
+  "recommendation": "Use the two-colour horizontal lockup by default. Use the small-size cut at 16\u201324 px and dedicated reversed artwork on dark surfaces.",
+  "next_steps": [
+    "Master SVGs contain filled paths only, with no font dependency.",
+    "Web icons and Android adaptive layers are included.",
+    "Screenshots are illustrative applications, not a shipped product UI."
+  ]
+}
