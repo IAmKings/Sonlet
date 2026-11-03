@@ -5,7 +5,13 @@
   "model_file": "sensevoice/model.int8.onnx",
   "tokens_file": "sensevoice/tokens.txt",
   "sample_rate": 16000,
-  "languages": ["zh", "en", "ja", "ko", "yue"],
+  "languages": [
+    "zh",
+    "en",
+    "ja",
+    "ko",
+    "yue"
+  ],
   "sha256_archive": "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e",
   "sha256_model": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
   "sha256_tokens": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc",
@@ -15,14 +21,14 @@
   "mirror": "https://huggingface.co/k2-fsa/sherpa-onnx-models/resolve/main/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
   "doc_source": "https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html",
   "download_date": "2026-11-04",
-  "license_review": "PENDING",
+  "license_review": "PENDING(2026-11-04 决策:内部验证接受为已知限制;对外分发前须法务签字)",
   "vad_model": {
     "id": "silero-vad-v4",
     "file": "vad/silero_vad.onnx",
     "bytes": 1807522,
     "sha256": "a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28",
     "source": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad_v4.onnx",
-    "license_review": "PENDING",
+    "license_review": "PENDING(2026-11-04 决策:内部验证接受为已知限制;对外分发前须法务签字)",
     "notes": "P1 语音分段;经实测 silero_v4 在 sherpa-onnx v2.0.1 JNI 上分段正确(v5 归档版异常),小体积随库提交,fetch_model.sh 校验一致性"
   },
   "notes": "字节数为磁盘文件实际大小;哈希与字节数在 fetch_model.sh 中强制校验。许可证结论待人工复核(M0/T0-03),禁止以仓库许可证代替模型许可证。"

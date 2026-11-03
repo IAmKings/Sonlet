@@ -60,13 +60,13 @@ scripts/fetch_model.sh
 
 安装到真机:`adb install -r app/build/outputs/apk/debug/app-debug.apk`,或直接在 Android Studio 运行。首次启动自动进行模型 SHA-256 校验(约 1–2 秒),通过后进入 READY。
 
-## 已知限制(P0/P1,如实记录)
+## 已知限制(P0/P1,如实记录;T4-05 已签署 Conditional Go,2026-11-04)
 
 - 仅 arm64-v8a;其他 ABI 设备未包含原生库。
-- 通话打断的系统性检测未实现音频焦点协作,依赖采集读取失败路径兜底(蓝牙/拔线场景已覆盖)。
-- 模型许可证(FunASR/SenseVoice/Silero VAD)与 ONNX Runtime 的再分发条款复核仍为 PENDING,产物仅限内部验证使用(见 docs/third_party_licenses.md)。
-- 中英混说准确率未做数据集评估(AC-P0-020 需人工语料)。
-- P2(流式/多引擎/模型下载/AAR SDK)未实现。
+- 中英混说准确率未量化(AC-P0-020,评测工装就绪,语料提供后可一键补测,见 docs/accuracy_eval.md)。
+- 通话打断无音频焦点协作,依赖采集读取失败兜底(蓝牙/拔线场景已覆盖)。
+- 许可证原文已核(均为 MIT/Apache-2.0),法务签字为对外分发前置条件;当前限内部验证与受限内测(docs/release_decision.md)。
+- P2(流式/多引擎/模型下载/端侧 LLM/AAR)经 2026-11-04 决策不启动。
 
 ## Git 提交
 
