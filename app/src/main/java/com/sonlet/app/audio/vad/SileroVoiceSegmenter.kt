@@ -4,6 +4,8 @@ import android.content.res.AssetManager
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** 语音分段结果 */
 class SpeechSegments(val segments: List<FloatArray>) {
@@ -16,8 +18,13 @@ class SpeechSegments(val segments: List<FloatArray>) {
  * 实现负责:静音阈值、最短语音时长、长句切分([SpeechSegments] 内多段)。
  */
 interface SpeechSegmenter {
-    /** 对完整 PCM 输入做离线分段;无语音时返回空列表(可提前跳过识别) */
-    fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments
+    /**
+     * 对完整 PCM 输入做离线分段;无语音时返回空列表(可提前跳过识别)。
+     *
+     * 实现必须在后台线程完成:30s 音频要跑约 937 次窗口推理,放在调用方线程
+     * (通常是主线程)会直接卡住 UI。
+     */
+    suspend fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments
 }
 
 /**
@@ -54,7 +61,11 @@ class SileroVoiceSegmenter(
     @Volatile
     private var closed = false
 
-    override fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments {
+    // 30s 音频≈937 次窗口推理,必须离开主线程(引擎侧同样自带 Default 派发)
+    override suspend fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments =
+        withContext(Dispatchers.Default) { segmentBlocking(samples, sampleRate) }
+
+    private fun segmentBlocking(samples: FloatArray, sampleRate: Int): SpeechSegments {
         check(!closed) { "SileroVoiceSegmenter already closed" }
         require(sampleRate == SAMPLE_RATE) {
             "VAD sampleRate mismatch: $sampleRate != $SAMPLE_RATE"

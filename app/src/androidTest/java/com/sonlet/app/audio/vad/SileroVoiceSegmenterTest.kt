@@ -6,6 +6,7 @@ import com.k2fsa.sherpa.onnx.WaveReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 
 /**
@@ -23,7 +24,7 @@ class SileroVoiceSegmenterTest {
     fun speechWavProducesAtLeastOneSegment() {
         val segmenter = SileroVoiceSegmenter(appContext.assets)
         val wave = WaveReader.readWave(testContext.assets, "test_wavs/zh.wav")
-        val result = segmenter.segment(wave.samples, wave.sampleRate)
+        val result = runBlocking { segmenter.segment(wave.samples, wave.sampleRate) }
         assertTrue("语音输入应产生至少一段", result.segments.isNotEmpty())
         val totalSamples = result.totalSamples
         assertTrue("语音样本不应被截断丢失(可能裁剪静音): $totalSamples vs ${wave.samples.size}", totalSamples > 0)
@@ -35,7 +36,7 @@ class SileroVoiceSegmenterTest {
     fun englishWavProducesAtLeastOneSegment() {
         val segmenter = SileroVoiceSegmenter(appContext.assets)
         val wave = WaveReader.readWave(testContext.assets, "test_wavs/en.wav")
-        val result = segmenter.segment(wave.samples, wave.sampleRate)
+        val result = runBlocking { segmenter.segment(wave.samples, wave.sampleRate) }
         assertTrue(result.segments.isNotEmpty())
     }
 
@@ -43,7 +44,7 @@ class SileroVoiceSegmenterTest {
     fun silenceProducesNoSegments() {
         val segmenter = SileroVoiceSegmenter(appContext.assets)
         val silence = FloatArray(16_000 * 2) { 0f } // 2s 静音
-        val result = segmenter.segment(silence, 16_000)
+        val result = runBlocking { segmenter.segment(silence, 16_000) }
         assertTrue("纯静音不应产生语音段: ${result.segments.size}", result.isEmpty)
     }
 
@@ -54,7 +55,7 @@ class SileroVoiceSegmenterTest {
         val wave = WaveReader.readWave(testContext.assets, "test_wavs/zh.wav")
         val long = FloatArray(wave.samples.size * 4)
         repeat(4) { i -> wave.samples.copyInto(long, i * wave.samples.size) }
-        val result = segmenter.segment(long, 16_000)
+        val result = runBlocking { segmenter.segment(long, 16_000) }
         android.util.Log.i("VadDebug", "segment sizes=${result.segments.map { it.size }} input=${long.size}")
         assertTrue("长语音应被切分: ${result.segments.size}", result.segments.size >= 2)
     }
@@ -62,7 +63,7 @@ class SileroVoiceSegmenterTest {
     @Test
     fun sampleRateMismatchThrows() {
         val segmenter = SileroVoiceSegmenter(appContext.assets)
-        val thrown = runCatching { segmenter.segment(FloatArray(16_000), 48_000) }
+        val thrown = runCatching { runBlocking { segmenter.segment(FloatArray(16_000), 48_000) } }
         assertTrue(thrown.exceptionOrNull() is IllegalArgumentException)
         assertEquals(null, thrown.exceptionOrNull()?.cause)
     }
@@ -73,13 +74,13 @@ class SileroVoiceSegmenterTest {
         SileroVoiceSegmenter(appContext.assets).use { segmenter ->
             val wave = WaveReader.readWave(testContext.assets, "test_wavs/zh.wav")
             repeat(3) { round ->
-                val result = segmenter.segment(wave.samples, wave.sampleRate)
+                val result = runBlocking { segmenter.segment(wave.samples, wave.sampleRate) }
                 assertTrue("第 ${round + 1} 次分段不应为空", result.segments.isNotEmpty())
             }
             // 静音分段后仍可用
             val silence = FloatArray(16_000 * 2)
-            assertTrue(segmenter.segment(silence, 16_000).isEmpty)
-            val again = segmenter.segment(wave.samples, wave.sampleRate)
+            assertTrue(runBlocking { segmenter.segment(silence, 16_000) }.isEmpty)
+            val again = runBlocking { segmenter.segment(wave.samples, wave.sampleRate) }
             assertTrue("静音后再分段仍应可用", again.segments.isNotEmpty())
         }
     }
@@ -90,7 +91,7 @@ class SileroVoiceSegmenterTest {
         val wave = WaveReader.readWave(testContext.assets, "test_wavs/zh.wav")
         segmenter.close()
         segmenter.close() // 幂等
-        val thrown = runCatching { segmenter.segment(wave.samples, wave.sampleRate) }
+        val thrown = runCatching { runBlocking { segmenter.segment(wave.samples, wave.sampleRate) } }
         assertTrue(thrown.exceptionOrNull() is IllegalStateException)
     }
 }

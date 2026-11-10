@@ -13,7 +13,7 @@ class FakeSpeechSegmenter(
     var lastSamples: FloatArray? = null
         private set
 
-    override fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments {
+    override suspend fun segment(samples: FloatArray, sampleRate: Int): SpeechSegments {
         calls++
         lastSamples = samples
         return SpeechSegments(segments)

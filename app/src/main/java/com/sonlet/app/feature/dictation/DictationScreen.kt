@@ -1,6 +1,8 @@
 package com.sonlet.app.feature.dictation
 
 import android.Manifest
+import android.content.Context
+import android.media.AudioManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -32,10 +34,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +61,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sonlet.app.R
+import com.sonlet.app.audio.capture.AudioInterruptionObserver
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationPhase
 import com.sonlet.app.dictation.core.HOLD_PHASES
@@ -75,12 +80,18 @@ fun DictationScreen(viewModel: DictationViewModel) {
     val context = LocalContext.current
     val permission = rememberMicPermissionState()
 
-    // 编辑器状态:以组合内为最新真值,写回 VM 供交付时使用(CC-04)
-    var editorValue by remember { mutableStateOf(TextFieldValue("")) }
+    // 编辑器状态:以组合内为最新真值,写回 VM 供交付时使用(CC-04)。
+    // 用 rememberSaveable 保存文本与光标:转屏/深色切换/进程重建都不得丢稿。
+    var editorValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
     LaunchedEffect(viewModel) {
         viewModel.onEditorChanged = { editorValue = it }
     }
-    viewModel.updateEditor(editorValue)
+    // 首帧把恢复出来的文本回灌 VM(进程重建时 VM 是全新的空值),之后由 onValueChange 持续同步
+    LaunchedEffect(Unit) {
+        viewModel.updateEditor(editorValue)
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
@@ -94,6 +105,23 @@ fun DictationScreen(viewModel: DictationViewModel) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         viewModel.onAppBackgrounded()
+    }
+
+    // AC-P0-015:输入设备被移除(蓝牙断连/拔线)时主动终止会话,
+    // 而不是等读取失败兜底(那是 AUDIO_READ_FAILED,语义不同)
+    val audioManager = remember(context) {
+        context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    }
+    DisposableEffect(viewModel, audioManager) {
+        if (audioManager == null) {
+            onDispose { }
+        } else {
+            val observer = AudioInterruptionObserver(audioManager) {
+                viewModel.onAudioRouteInterrupted()
+            }
+            observer.register()
+            onDispose { observer.unregister() }
+        }
     }
 
     val requestPermission =
@@ -123,8 +151,9 @@ fun DictationScreen(viewModel: DictationViewModel) {
     }
 
     // P1:交互模式与风格(DESIGN.md P1 边界:经验证的能力才展示入口)
-    var holdMode by remember { mutableStateOf(false) }
-    var style by remember { mutableStateOf(DictationStyle.VERBATIM) }
+    // 模式是纯 UI 偏好,rememberSaveable 足够;风格是交付参数,真值只在 VM(避免副本失同步)
+    var holdMode by rememberSaveable { mutableStateOf(false) }
+    val style by viewModel.styleFlow.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compact = maxWidth < 600.dp
@@ -169,15 +198,13 @@ fun DictationScreen(viewModel: DictationViewModel) {
                 if (state.phase == DictationPhase.READY) {
                     StyleSelector(
                         selected = style,
-                        onSelect = {
-                            style = it
-                            viewModel.setStyle(it)
-                        },
+                        onSelect = viewModel::setStyle,
                     )
                 }
                 ControlPanel(
                     state = state,
                     holdMode = holdMode,
+                    limitMs = viewModel.captureOptions.maxDurationMs,
                     onHoldModeChange = { holdMode = it },
                     modifier = Modifier.fillMaxWidth(),
                     onStart = onStartRequested,
@@ -282,6 +309,7 @@ private fun Editor(
 private fun ControlPanel(
     state: DictationUiState,
     holdMode: Boolean,
+    limitMs: Long,
     onHoldModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStart: () -> Unit,
@@ -301,7 +329,7 @@ private fun ControlPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatusRow(state)
+            StatusRow(state, limitMs)
             if (state.phase == DictationPhase.RECORDING) {
                 val waveformDescription = stringResource(R.string.a11y_waveform)
                 RecordingSurface(
@@ -348,7 +376,7 @@ private fun NeutralTextButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StatusRow(state: DictationUiState) {
+private fun StatusRow(state: DictationUiState, limitMs: Long) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -389,7 +417,7 @@ private fun StatusRow(state: DictationUiState) {
         // 计时仅在录音中展示;STARTING 不显示已录时长(DESIGN.md §6)
         if (state.phase == DictationPhase.RECORDING) {
             Text(
-                text = formatTimer(state.durationMs),
+                text = formatTimer(state.durationMs, limitMs),
                 style = TextStyle(
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -601,12 +629,22 @@ fun errorTextRes(code: DictationErrorCode?): Int = when (code) {
     null -> R.string.err_ASR_DECODE_FAILED
 }
 
-/** 等宽数字计时(DESIGN.md §4):不每秒改变布局宽度 */
-internal fun formatTimer(durationMs: Long): String {
+/**
+ * 等宽数字计时(DESIGN.md §4):不每秒改变布局宽度。
+ * 上限由调用方传入(来自 [com.sonlet.app.audio.capture.CaptureOptions.maxDurationMs]),
+ * 硬编码会让改上限的那天 UI 开始撒谎。
+ */
+internal fun formatTimer(durationMs: Long, limitMs: Long): String {
     val totalSeconds = durationMs / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format(Locale.US, "%02d:%02d / 00:30", minutes, seconds)
+    val limitSeconds = limitMs / 1000
+    return String.format(
+        Locale.US,
+        "%02d:%02d / %02d:%02d",
+        totalSeconds / 60,
+        totalSeconds % 60,
+        limitSeconds / 60,
+        limitSeconds % 60,
+    )
 }
 
 /** P1 交互模式切换:仅 READY/RECORDING 展示;随时可切,行为对当前会话安全 */

@@ -1,5 +1,6 @@
 package com.sonlet.app.asr.sherpa
 
+import android.content.Context
 import android.content.res.AssetManager
 import com.sonlet.app.asr.api.AsrEngineException
 import com.sonlet.app.asr.api.AsrErrorCode
@@ -23,9 +24,13 @@ sealed interface ModelInstallStatus {
  * P0 只读 assets;P2 的 install()/下载/回滚为扩展点,不在此实现。
  *
  * 校验策略:fastCheck(存在性 + 体积)用于快速路径;verify(流式 SHA-256)
- * 在模型准备阶段执行一次,结果与错误不写入持久化历史。
+ * 在模型准备阶段执行,结果经 [verificationCache] 记住(同版本包不重复哈希)。
  */
-class ModelRepository(private val assets: AssetManager) {
+class ModelRepository(
+    private val assets: AssetManager,
+    private val verificationCache: ModelVerificationCache? = null,
+    private val verificationKey: String? = null,
+) {
 
     val descriptor: AsrModelDescriptor = MODEL_DESCRIPTOR
 
@@ -41,22 +46,34 @@ class ModelRepository(private val assets: AssetManager) {
         }
     }
 
-    /** 完整校验:存在性 + 体积 + SHA-256(防止损坏/替换文件进入推理) */
+    /**
+     * 完整校验:存在性 + 体积 + SHA-256(防止损坏/替换文件进入推理)。
+     *
+     * 同一份已装包(见 [verificationKey])只哈希一次,之后走缓存;首次安装、
+     * 升级、以及任何体积异常仍会完整校验。
+     */
     suspend fun verify(): ModelInstallStatus = withContext(Dispatchers.IO) {
         when (val fast = fastCheck()) {
             is ModelInstallStatus.NotInstalled, ModelInstallStatus.Corrupted -> fast
             is ModelInstallStatus.Ready -> {
-                val modelOk = runCatching { sha256Of(MODEL_ASSET) == MODEL_SHA256 }
-                    .getOrDefault(false)
-                val tokensOk = runCatching { sha256Of(TOKENS_ASSET) == TOKENS_SHA256 }
-                    .getOrDefault(false)
-                when {
-                    modelOk && tokensOk -> fast
-                    else -> ModelInstallStatus.Corrupted
-                }
+                if (isCachedVerified()) fast else verifyDigests(fast)
             }
             else -> fast
         }
+    }
+
+    private fun isCachedVerified(): Boolean {
+        val key = verificationKey ?: return false
+        return verificationCache?.isVerified(key) == true
+    }
+
+    private fun verifyDigests(fast: ModelInstallStatus.Ready): ModelInstallStatus {
+        val modelOk = runCatching { sha256Of(MODEL_ASSET) == MODEL_SHA256 }.getOrDefault(false)
+        val tokensOk = runCatching { sha256Of(TOKENS_ASSET) == TOKENS_SHA256 }.getOrDefault(false)
+        if (!modelOk || !tokensOk) return ModelInstallStatus.Corrupted
+        val key = verificationKey
+        if (key != null) verificationCache?.markVerified(key)
+        return fast
     }
 
     /** 提供可读的模型入口;P0 校验通过后由引擎直接经 AssetManager 加载 */
@@ -93,6 +110,16 @@ class ModelRepository(private val assets: AssetManager) {
         const val TOKENS_SHA256 = "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
         const val MIN_MODEL_BYTES = 200L * 1024 * 1024
         const val MIN_TOKENS_BYTES = 128L * 1024
+
+        /**
+         * 缓存 key:应用升级时间 + 模型哈希常量。apk 一升级 lastUpdateTime 就变,
+         * 换模型则哈希常量变,任一变化都会强制重新哈希。
+         */
+        fun verificationKeyFor(context: Context): String? = runCatching {
+            @Suppress("DEPRECATION")
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.lastUpdateTime}:$MODEL_SHA256"
+        }.getOrNull()
 
         val MODEL_DESCRIPTOR = AsrModelDescriptor(
             id = "sensevoice-small-int8-2024-07-17",

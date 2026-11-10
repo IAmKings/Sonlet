@@ -337,13 +337,19 @@ class DictationController(
             withContext(NonCancellable) {
                 job?.cancelAndJoin()
                 runCatching { capture.cancel(sessionId) }
-                _state.update {
-                    it.copy(
-                        phase = DictationPhase.READY,
-                        sessionId = null,
-                        durationMs = 0,
-                        durationCapped = false,
-                    )
+                // 只收敛自己那次会话:取消后立刻重开的场景下,旧清理不得把新会话
+                // 的状态打回 READY(NonCancellable 块不受 cleanupJob.cancel 影响)
+                _state.update { state ->
+                    if (state.sessionId != sessionId) {
+                        state
+                    } else {
+                        state.copy(
+                            phase = DictationPhase.READY,
+                            sessionId = null,
+                            durationMs = 0,
+                            durationCapped = false,
+                        )
+                    }
                 }
             }
         }

@@ -20,6 +20,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -173,13 +174,18 @@ fun RecordingSurface(
     modifier: Modifier = Modifier,
 ) {
     val history = remember { mutableStateOf(FloatArray(WAVE_BARS)) }
-    if (recording) {
-        val next = history.value.copyOf()
-        System.arraycopy(next, 1, next, 0, WAVE_BARS - 1)
-        next[WAVE_BARS - 1] = volumeLevel
-        history.value = next
-    } else if (history.value.any { it > 0.01f }) {
-        history.value = FloatArray(WAVE_BARS)
+    // 组合期不得写 state(会触发额外重组,同一帧还可能被重复推进);
+    // 波形推进放到组合之后,按 volumeLevel 变化逐帧滚动
+    LaunchedEffect(volumeLevel, recording) {
+        val current = history.value
+        if (recording) {
+            val next = current.copyOf()
+            System.arraycopy(next, 1, next, 0, WAVE_BARS - 1)
+            next[WAVE_BARS - 1] = volumeLevel
+            history.value = next
+        } else if (current.any { it > 0.01f }) {
+            history.value = FloatArray(WAVE_BARS)
+        }
     }
     val barColor = MaterialTheme.colorScheme.primary
     val trackColor = MaterialTheme.colorScheme.outlineVariant

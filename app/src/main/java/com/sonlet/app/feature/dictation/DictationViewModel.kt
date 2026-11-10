@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sonlet.app.asr.api.AsrEngine
 import com.sonlet.app.asr.sherpa.ModelInstallStatus
 import com.sonlet.app.asr.sherpa.ModelRepository
+import com.sonlet.app.asr.sherpa.SharedPreferencesModelVerificationCache
 import com.sonlet.app.asr.sherpa.SherpaEngineFactory
 import com.sonlet.app.audio.capture.CaptureOptions
 import com.sonlet.app.audio.capture.PcmAudioRecorder
@@ -23,7 +24,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -33,29 +36,39 @@ import kotlinx.coroutines.launch
  */
 class DictationViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = ModelRepository(application.assets)
+    private val repository = ModelRepository(
+        assets = application.assets,
+        verificationCache = SharedPreferencesModelVerificationCache(application),
+        verificationKey = ModelRepository.verificationKeyFor(application),
+    )
     private val engine: AsrEngine = SherpaEngineFactory.create(application.assets)
     private val capture = PcmAudioRecorder(application)
     private val segmenter = SileroVoiceSegmenter(application.assets)
 
+    /**
+     * 采集参数:同时是计时器上限的唯一来源,UI 不再硬编码 30s。
+     */
+    val captureOptions = CaptureOptions()
+
+    /** P1 风格选择(§12.2):交付时读取;UI 通过 [styleFlow] 单向订阅,避免出现副本 */
+    private val styleState = MutableStateFlow(DictationStyle.VERBATIM)
+    val styleFlow: StateFlow<DictationStyle> = styleState.asStateFlow()
+
     private val controller = DictationController(
         engine = engine,
         capture = capture,
-        captureOptions = CaptureOptions(),
+        captureOptions = captureOptions,
         modelVerification = { verifyModel() },
         scope = viewModelScope,
-        styleProvider = { currentStyle },
+        styleProvider = { styleState.value },
         // P1 FR-103:Silero VAD 分段;无语音段跳过识别,长句切分转写
         speechSegmenter = segmenter,
         // 会话异常仅记结构化诊断(脱敏:不含音频与正文,G09)
         errorLogger = { error -> android.util.Log.e("SonletDictation", "session error", error) },
     )
 
-    /** P1 风格选择(§12.2):交付时读取;UI 绑定用 */
-    var currentStyle: DictationStyle = DictationStyle.VERBATIM
-
     fun setStyle(style: DictationStyle) {
-        currentStyle = style
+        styleState.value = style
     }
 
     val uiState: StateFlow<DictationUiState> = controller.state

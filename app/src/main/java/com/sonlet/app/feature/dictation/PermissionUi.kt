@@ -42,9 +42,11 @@ class MicPermissionState(private val context: Context) {
 
     internal val appContext: Context = context.applicationContext
 
-    var granted: Boolean =
+    /** 授权事实:必须是 Compose state,否则从系统设置授权返回后界面不会刷新 */
+    var granted by mutableStateOf(
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED,
+    )
         private set
 
     /** 拒绝过一次:显示就近说明面(DESIGN.md §7 权限说明) */
