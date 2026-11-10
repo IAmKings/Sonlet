@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.withLock
 
 /**
@@ -281,7 +282,15 @@ class PcmAudioRecorder(
         }
     }
 
-    fun dispose() {
+    /**
+     * 页面销毁:停止读循环并释放 [AudioRecord],随后关闭自有 scope。
+     *
+     * 只 cancel scope 不够:readLoop 阻塞在 record.read(),取消协程不会打断阻塞调用,
+     * AudioRecord 会继续录音直到缓冲写满或撞上 30s 上限。
+     */
+    suspend fun dispose() {
+        // 解阻塞 + 等读取循环释放设备;超时也保证录音已停(scope 兜底)
+        withTimeoutOrNull(DISPOSE_TIMEOUT_MS) { runCatching { shutdown() } }
         scope.cancel()
     }
 
@@ -293,5 +302,8 @@ class PcmAudioRecorder(
 
         /** RMS→展示电平增益;语音近讲典型 RMS 0.05~0.3 */
         const val LEVEL_GAIN = 4f
+
+        /** dispose 等待读取循环收敛的上限;超时后仍会关 scope */
+        private const val DISPOSE_TIMEOUT_MS = 2_000L
     }
 }

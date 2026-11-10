@@ -11,6 +11,7 @@ import com.sonlet.app.audio.capture.CaptureOptions
 import com.sonlet.app.audio.vad.SpeechSegmenter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -81,6 +82,9 @@ class DictationController(
 
     private var started = false
 
+    @Volatile
+    private var shutdownDone = false
+
     /** 启动命令循环与模型准备;重复调用忽略 */
     fun start() {
         if (started) return
@@ -100,6 +104,29 @@ class DictationController(
 
     fun dispatch(command: DictationCommand) {
         commands.trySend(command)
+    }
+
+    /**
+     * 页面销毁时的资源收敛:停命令循环、取消在途会话、释放引擎与 native 内存。
+     *
+     * 必须在**独立于 [scope] 的协程**里调用:ViewModel.onCleared 时 viewModelScope
+     * 已经取消,挂在它下面的清理一条都不会执行。幂等。
+     */
+    suspend fun shutdown() {
+        if (shutdownDone) return
+        shutdownDone = true
+        started = false
+        commands.close()
+        guard.invalidateAll()
+        pendingFinish = false
+        // 先取消会话(join 在途转写与 VAD),再收敛采集,最后放引擎
+        modelPrepareJob?.cancelAndJoin()
+        sessionJob?.cancelAndJoin()
+        cleanupJob?.cancelAndJoin()
+        _state.value.sessionId?.let { sessionId ->
+            runCatching { capture.cancel(sessionId) }
+        }
+        runCatching { engine.release() }
     }
 
     private fun handle(command: DictationCommand) {
@@ -172,6 +199,16 @@ class DictationController(
     private suspend fun runSession(sessionId: Long) {
         val finish = CompletableDeferred<Unit>()
         finishSignal = finish
+        var captureFailure: CaptureFailure? = null
+        // 先订阅、再启动:读取循环在 start() 内部就已开跑,晚订阅会永久丢失启动期的读失败。
+        // UNDISPATCHED 保证 collect 在 start() 之前真正注册上,不依赖调度器的"立即执行"语义。
+        val failureCollector = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            capture.errorEvents.collect { failure ->
+                if (failure.sessionId != sessionId) return@collect
+                captureFailure = failure
+                finish.complete(Unit) // 读取失败 → 终止会话,不转写残缺音频
+            }
+        }
         try {
             capture.start(sessionId, captureOptions)
             _state.update { state ->
@@ -182,13 +219,6 @@ class DictationController(
             if (pendingFinish) {
                 pendingFinish = false
                 finish.complete(Unit)
-            }
-            var captureFailure: CaptureFailure? = null
-            val failureCollector = scope.launch {
-                capture.errorEvents.collect {
-                    captureFailure = it
-                    finish.complete(Unit) // 读取失败 → 终止会话,不转写残缺音频
-                }
             }
             val ticker = scope.launch {
                 while (true) {
@@ -209,7 +239,6 @@ class DictationController(
                 finish.await()
             } finally {
                 ticker.cancel()
-                failureCollector.cancelAndJoin()
             }
 
             if (captureFailure != null) {
@@ -258,6 +287,7 @@ class DictationController(
             errorLogger(e)
             enterError(e.toDictationError())
         } finally {
+            failureCollector.cancelAndJoin()
             if (finishSignal === finish) finishSignal = null
         }
     }

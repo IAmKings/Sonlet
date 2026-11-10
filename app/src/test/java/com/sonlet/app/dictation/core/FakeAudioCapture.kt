@@ -24,6 +24,10 @@ class FakeAudioCapture(
     @Volatile
     var startError: AudioCaptureException? = null
 
+    /** 在 start() 内部(返回前)触发一次读失败:模拟读循环早于订阅者启动 */
+    @Volatile
+    var failDuringStart: Boolean = false
+
     /** stop() 返回值;默认按 currentDurationMs 生成静音样本 */
     @Volatile
     var injectedResult: CaptureResult? = null
@@ -68,6 +72,7 @@ class FakeAudioCapture(
         }
         activeSession = sessionId
         startedCount++
+        if (failDuringStart) emitReadFailure(sessionId)
     }
 
     override suspend fun stop(sessionId: Long): CaptureResult {

@@ -19,6 +19,9 @@ import com.sonlet.app.dictation.core.DictationStyle
 import com.sonlet.app.dictation.core.DictationUiState
 import com.sonlet.app.dictation.core.ModelVerificationResult
 import com.sonlet.app.dictation.core.TextInsertionPolicy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -129,11 +132,26 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
             is ModelInstallStatus.Verifying -> ModelVerificationResult.Ok // 不会出现于 verify() 返回
         }
 
+    /**
+     * 销毁期资源收敛作用域:onCleared 时 viewModelScope 已被取消,
+     * 停 AudioRecord 与释放 239MB native 模型必须落在独立于它的协程里。
+     */
+    private val teardownJob = SupervisorJob()
+    private val teardownScope = CoroutineScope(teardownJob + Dispatchers.IO)
+
     override fun onCleared() {
-        // 页面销毁:停止采集并失效交付(PRD §5.3、AC-P0-014)
-        onAppBackgrounded()
-        capture.dispose()
-        segmenter.close()
+        // 页面销毁:停止采集、失效交付、释放 native 资源(PRD §5.3、AC-P0-014)
+        teardownScope.launch {
+            try {
+                // 顺序:先停会话(join 在途转写)→ 停采集 → 释放 VAD → 释放引擎
+                // (引擎释放收敛在 controller.shutdown 内,避免漏掉 decode 互斥)
+                runCatching { controller.shutdown() }
+                runCatching { capture.dispose() }
+                runCatching { segmenter.close() }
+            } finally {
+                teardownJob.complete()
+            }
+        }
         super.onCleared()
     }
 }
