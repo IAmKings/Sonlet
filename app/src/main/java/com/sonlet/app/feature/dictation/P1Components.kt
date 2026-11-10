@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.sonlet.app.R
 import com.sonlet.app.dictation.core.DictationPhase
 import com.sonlet.app.dictation.core.DictationStyle
+import com.sonlet.app.dictation.core.HOLD_PHASES
 import com.sonlet.app.dictation.core.DictationUiState
 
 /**
@@ -52,16 +54,18 @@ import com.sonlet.app.dictation.core.DictationUiState
  * - READY 按下 → 开始;RECORDING 松开 → 结束转写
  * - 按住期间上滑超过 [cancelDragDistance] → 取消(松开不再触发结束)
  * - 按下时启动未完成即松开 → Controller pendingFinish(CC-02)
- * - 快速点击(< [tapTreatAsHoldMs] 视为误触的极短录音)由 <300ms 误触路径兜底
+ * - 快速点击由 <300ms 误触路径兜底
+ *
+ * 不变量:手势 key 不得依赖状态机阶段。按下会推动状态机进入 STARTING,
+ * 若 key 含 phase 就会在按住的同一帧重启协程、丢掉在途手势(松手永远不到达)。
+ * 是否挂载本手势由调用方按 [HOLD_PHASES] 决定。
  */
 fun Modifier.voiceHoldGesture(
-    enabled: Boolean,
     cancelDragDistance: Float,
     onPressStart: () -> Unit,
     onPressRelease: () -> Unit,
     onPressCancel: () -> Unit,
-): Modifier = pointerInput(enabled, cancelDragDistance) {
-    if (!enabled) return@pointerInput
+): Modifier = pointerInput(cancelDragDistance) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         onPressStart()
@@ -69,7 +73,8 @@ fun Modifier.voiceHoldGesture(
         val startY = down.position.y
         while (true) {
             val event = awaitPointerEvent()
-            val change = event.changes.firstOrNull() ?: break
+            // 多指时只跟随发起手势的那根手指
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
             if (!cancelled && (startY - change.position.y) > cancelDragDistance) {
                 cancelled = true
                 onPressCancel()
@@ -77,9 +82,8 @@ fun Modifier.voiceHoldGesture(
             change.consume()
             if (!change.pressed) break
         }
-        if (cancelled) {
-            onPressCancel() // 幂等:释放时再次确认取消
-        } else {
+        // 取消路径只回调一次 cancel:释放时不再重复通知
+        if (!cancelled) {
             onPressRelease()
         }
     }
@@ -102,7 +106,8 @@ fun HoldToTalkButton(
         animationSpec = tween(120),
         label = "hold-press-scale",
     )
-    val holdActive = state.phase == DictationPhase.READY || state.phase == DictationPhase.RECORDING
+    // STARTING 也属于可交互态:按钮在该阶段仍挂载,松手必须能结束会话
+    val interactive = state.phase in HOLD_PHASES
     val label = when {
         state.phase == DictationPhase.READY -> stringResource(R.string.btn_hold_to_talk)
         state.phase == DictationPhase.RECORDING -> stringResource(R.string.btn_release_to_transcribe)
@@ -121,10 +126,10 @@ fun HoldToTalkButton(
     Box(
         modifier = modifier
             .scale(scale)
+            .testTag(HOLD_TO_TALK_TEST_TAG)
             .then(
-                if (holdActive) {
+                if (interactive) {
                     Modifier.voiceHoldGesture(
-                        enabled = holdActive,
                         cancelDragDistance = cancelDrag,
                         onPressStart = {
                             pressed.value = true
@@ -148,7 +153,7 @@ fun HoldToTalkButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (holdActive) {
+            color = if (interactive) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -243,3 +248,6 @@ private fun StyleChip(
 }
 
 private const val WAVE_BARS = 40
+
+/** 按住按钮的测试标记:UI 测试据此断言"节点在 STARTING 阶段未被移出组合" */
+internal const val HOLD_TO_TALK_TEST_TAG = "hold-to-talk-button"

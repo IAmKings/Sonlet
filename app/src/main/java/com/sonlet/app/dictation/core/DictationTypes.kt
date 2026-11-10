@@ -69,6 +69,31 @@ data class DictationUiState(
             phase == DictationPhase.CANCELLING
 }
 
+/**
+ * 按住说话模式下主按钮必须保持挂载的阶段集合(UI 不变量)。
+ *
+ * STARTING 必须在内:按下即触发 Start 命令,状态机几乎立刻进入 STARTING。
+ * 若此时把按钮移出组合(或让手势 key 随阶段变化),pointerInput 节点被销毁,
+ * 手指抬起事件永久丢失,录音只能等到 30s 上限自动结束
+ * (见 issue-11-10-hold-to-talk-release 的回归测试)。
+ */
+val HOLD_PHASES: Set<DictationPhase> = setOf(
+    DictationPhase.READY,
+    DictationPhase.STARTING,
+    DictationPhase.RECORDING,
+)
+
+/**
+ * 主按钮是否应以"按住说话"形态呈现。
+ * 只要手势还在进行就必须保留挂载([gestureInProgress]),避免按住中途切换交互模式
+ * 把节点摘掉——那是同一类"节点消失 ⇒ 事件丢失"的缺陷。
+ */
+fun holdButtonVisible(
+    phase: DictationPhase,
+    holdMode: Boolean,
+    gestureInProgress: Boolean,
+): Boolean = phase in HOLD_PHASES && (holdMode || gestureInProgress)
+
 /** 一次性事件:结果交付与轻提示;不进入常驻状态 */
 sealed interface DictationEvent {
     /** 识别成功;交付层已通过 generation 与 resultId 校验 */

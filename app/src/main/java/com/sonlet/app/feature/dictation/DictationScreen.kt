@@ -59,6 +59,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sonlet.app.R
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationPhase
+import com.sonlet.app.dictation.core.HOLD_PHASES
+import com.sonlet.app.dictation.core.holdButtonVisible
 import com.sonlet.app.dictation.core.DictationStyle
 import com.sonlet.app.dictation.core.DictationUiState
 import java.util.Locale
@@ -400,7 +402,7 @@ private fun StatusRow(state: DictationUiState) {
 }
 
 @Composable
-private fun ActionRow(
+internal fun ActionRow(
     state: DictationUiState,
     holdMode: Boolean,
     onStart: () -> Unit,
@@ -410,16 +412,20 @@ private fun ActionRow(
     onDismissError: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // 手势存活态:按住期间即使交互模式被切换,也必须保住按钮节点,否则松手事件丢失
+    var gestureInProgress by remember { mutableStateOf(false) }
+    LaunchedEffect(state.phase) {
+        if (state.phase !in HOLD_PHASES) gestureInProgress = false
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 按住说话模式(FR-101):READY/RECORDING 阶段由手势组件接管主按钮
-        if (holdMode && (state.phase == DictationPhase.READY ||
-                state.phase == DictationPhase.RECORDING)
-        ) {
-            if (state.phase == DictationPhase.RECORDING) {
+        // 按住说话模式(FR-101):READY/STARTING/RECORDING 阶段由手势组件接管主按钮。
+        // STARTING 必须保留——按下会立刻推进到 STARTING,此刻移出组合会丢掉松手事件。
+        if (holdButtonVisible(state.phase, holdMode, gestureInProgress)) {
+            if (state.phase != DictationPhase.READY) {
                 NeutralTextButton(text = stringResource(R.string.btn_cancel), onClick = onCancel)
             }
             HoldToTalkButton(
@@ -427,9 +433,18 @@ private fun ActionRow(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 56.dp),
-                onPressStart = onStart,
-                onPressRelease = onFinish,
-                onPressCancel = onCancel,
+                onPressStart = {
+                    gestureInProgress = true
+                    onStart()
+                },
+                onPressRelease = {
+                    gestureInProgress = false
+                    onFinish()
+                },
+                onPressCancel = {
+                    gestureInProgress = false
+                    onCancel()
+                },
             )
             return@Row
         }
