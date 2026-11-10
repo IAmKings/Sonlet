@@ -52,6 +52,11 @@ enum class DictationErrorCode {
     UNSUPPORTED_AUDIO_FORMAT,
 }
 
+/** 模型类错误(PRD §10.4):可由"重试加载模型"恢复;UI 与状态机共用同一判定 */
+internal fun DictationErrorCode?.isModelError(): Boolean = this == DictationErrorCode.MODEL_NOT_FOUND ||
+    this == DictationErrorCode.MODEL_CORRUPTED ||
+    this == DictationErrorCode.MODEL_LOAD_FAILED
+
 data class DictationUiState(
     val phase: DictationPhase = DictationPhase.PREPARING,
     val sessionId: Long? = null,

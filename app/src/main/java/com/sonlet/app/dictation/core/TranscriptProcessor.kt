@@ -101,7 +101,7 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
         return sb.toString()
     }
 
-    private fun isCollapsibleStutterChar(ch: Char): Boolean = ch.isLetterOrDigit() || ch.isHan()
+    private fun isCollapsibleStutterChar(ch: Char): Boolean = ch.isLetterOrDigit() || ch.isHanIdeograph()
 
     /**
      * CONCISE:移除显式填充词表中的独立 token(空白分隔或标点邻接)。
@@ -110,7 +110,7 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
     private fun removeFillers(text: String, transformations: MutableList<String>): String {
         val tokens = text.split(' ')
         val kept = tokens.filter { token ->
-            val core = token.trim { !it.isLetterOrDigit() && !it.isHan() }
+            val core = token.trim { !it.isLetterOrDigit() && !it.isHanIdeograph() }
             val coreLower = core.lowercase()
             !(core in FILLERS_ZH || coreLower in FILLERS_EN)
         }
@@ -134,14 +134,6 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
             transformations += "split_to_lines"
         }
         return lines
-    }
-
-    private fun Char.isHan(): Boolean {
-        val block = Character.UnicodeBlock.of(this) ?: return false
-        return block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
-            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
-            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
-            block == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS
     }
 
     companion object {

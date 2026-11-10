@@ -41,10 +41,14 @@ class PcmAudioRecorder(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
 
+    /** 串行化停机:stop 与 cancel 并发时只允许一个真正执行 */
+    private val stopMutex = Mutex()
+
     private var audioRecord: AudioRecord? = null
     private var readJob: Job? = null
 
     private var activeSessionId: Long? = null
+    @Volatile
     private var options: CaptureOptions = defaultOptions
     private var buffer: FloatArray = FloatArray(0)
 
@@ -153,12 +157,12 @@ class PcmAudioRecorder(
     private class Collected(val samples: FloatArray, val capped: Boolean)
 
     /** 停止标志 + 解阻塞 + 等待读取循环收敛;重复停止返回空结果 */
-    private suspend fun shutdown(): Collected {
+    private suspend fun shutdown(): Collected = stopMutex.withLock {
         stopRequested = true
         // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略
         runCatching { audioRecord?.stop() }
         readJob?.join()
-        return mutex.withLock {
+        mutex.withLock {
             val collected = Collected(buffer.copyOf(sampleCount), durationCapped)
             audioRecord = null
             readJob = null

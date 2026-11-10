@@ -379,12 +379,6 @@ class DictationController(
         }
     }
 
-    private fun DictationErrorCode?.isModelError(): Boolean = this in setOf(
-        DictationErrorCode.MODEL_NOT_FOUND,
-        DictationErrorCode.MODEL_CORRUPTED,
-        DictationErrorCode.MODEL_LOAD_FAILED,
-    )
-
     // ---- 错误映射(PRD §10.4) ----
 
     private fun Throwable.toDictationError(): DictationErrorCode = when (this) {

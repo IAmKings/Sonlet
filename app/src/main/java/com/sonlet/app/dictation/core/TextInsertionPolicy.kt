@@ -111,12 +111,4 @@ object TextInsertionPolicy {
 
     private fun Char.isLatinLetterOrDigit(): Boolean =
         (this in 'a'..'z') || (this in 'A'..'Z') || (this in '0'..'9')
-
-    private fun Char.isHanIdeograph(): Boolean {
-        val block = Character.UnicodeBlock.of(this) ?: return false
-        return block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
-            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
-            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
-            block == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS
-    }
 }

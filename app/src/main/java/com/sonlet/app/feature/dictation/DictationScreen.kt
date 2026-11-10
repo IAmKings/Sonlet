@@ -65,6 +65,7 @@ import com.sonlet.app.audio.capture.AudioInterruptionObserver
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationPhase
 import com.sonlet.app.dictation.core.HOLD_PHASES
+import com.sonlet.app.dictation.core.isModelError
 import com.sonlet.app.dictation.core.holdButtonVisible
 import com.sonlet.app.dictation.core.DictationStyle
 import com.sonlet.app.dictation.core.DictationUiState
@@ -564,10 +565,6 @@ internal fun ActionRow(
         }
     }
 }
-
-private fun DictationErrorCode?.isModelError(): Boolean = this == DictationErrorCode.MODEL_NOT_FOUND ||
-    this == DictationErrorCode.MODEL_CORRUPTED ||
-    this == DictationErrorCode.MODEL_LOAD_FAILED
 
 /** 主按钮(DESIGN.md §7):primary 底、最小高 56dp;禁用时保留语义文案 */
 @Composable
