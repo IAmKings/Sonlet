@@ -35,3 +35,7 @@ __pycache__/
 
 # 标识包可由已跟踪的目录内容重新打包
 /docs/brand/*.zip
+
+# Trellis 工作流与会话代理的运行产物(本地工具目录,不入库)
+/.trellis/
+/.agents/
