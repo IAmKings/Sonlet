@@ -539,6 +539,8 @@ try {
 
 ### 10.4 错误码规范
 
+> 本表是错误码全集规范。其中 `AUDIO_TOO_SHORT`、`AUDIO_TOO_LONG`、`ASR_EMPTY_RESULT`、`AUDIO_ROUTE_CHANGED`、`SESSION_CANCELLED` 的恢复动作是轻提示、自动转写或无回填，运行时由 `DictationEvent` 承载、不进入常驻 `ERROR` 状态（DESIGN.md §6），因此不在 `DictationErrorCode` 枚举内；其余错误码进入 `ERROR` 态并向用户展示对应消息。
+
 | 错误码 | 原因 | 用户消息 | 恢复动作 |
 |---|---|---|---|
 | `MIC_PERMISSION_DENIED` | 未授予录音权限 | 请允许麦克风权限 | 重新授权/去设置 |
