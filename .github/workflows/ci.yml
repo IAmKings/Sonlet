@@ -30,7 +30,7 @@ jobs:
         with:
           packages: platform-tools platforms;android-35
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # gradle.properties 为本地开发固定了 Android Studio 的 JBR 绝对路径,
       # 该路径在 runner 上不存在。删掉这一行让 Gradle 用 setup-java 装好的 JDK。
@@ -72,13 +72,13 @@ jobs:
         with:
           packages: platform-tools platforms;android-35
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: 使用 runner 的 JDK
         run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
 
       # 把解析出的依赖提交到 GitHub 依赖图谱,仓库的 Dependabot 告警据此工作
-      - uses: gradle/actions/dependency-submission@v4
+      - uses: gradle/actions/dependency-submission@v6
 
   dependency-review:
     name: 依赖安全审查
@@ -113,7 +113,7 @@ jobs:
         with:
           packages: platform-tools platforms;android-35
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: 使用 runner 的 JDK
         run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
