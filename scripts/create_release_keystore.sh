@@ -50,6 +50,8 @@ chmod 600 "${KEYSTORE}"
         printf 'keyPassword=%s\n' "${password}"
     } > "${PROPERTIES}"
 )
+# 若文件是预先创建的空占位符,重定向会保留它的旧权限,这里统一收紧
+chmod 600 "${PROPERTIES}"
 
 echo
 echo "已生成:"
