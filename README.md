@@ -63,17 +63,24 @@ scripts/fetch_model.sh
 
 ## Release 签名
 
-Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。本地首次生成:
+Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。首次在本地执行:
 
 ```sh
-keytool -genkeypair -keystore release.jks -storetype PKCS12 \
-  -alias sonlet -keyalg RSA -keysize 2048 -validity 10000
-printf 'storeFile=release.jks\nstorePassword=你的口令\nkeyAlias=sonlet\nkeyPassword=你的口令\n' > keystore.properties
+scripts/create_release_keystore.sh
 ```
 
-没有这个文件时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
+脚本在终端里索要口令(输入不回显,也不进命令行参数),生成 `release.jks` 并回填 `keystore.properties`。也可以自己建好 keystore,再按下面格式手填:
 
-CI 里的签名走手动触发的 `release` job(GitHub → Actions → CI → Run workflow),需要四个仓库 secret:
+```properties
+storeFile=release.jks
+storePassword=你的口令
+keyAlias=sonlet
+keyPassword=你的口令
+```
+
+没有可用密钥时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
+
+`release.jks` 必须备份:丢失后无法为已上架的应用签名升级。缺省签名走手动触发的 `release` job(Actions → CI → Run workflow),需要四个仓库 secret:
 
 | secret | 内容 |
 |---|---|

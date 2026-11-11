@@ -14,7 +14,11 @@ val keystoreProperties = Properties().apply {
         FileInputStream(keystorePropertiesFile).use { load(it) }
     }
 }
-val hasReleaseSigning = !keystoreProperties.getProperty("storeFile").isNullOrBlank()
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")
+    ?.takeIf { it.isNotBlank() }
+    ?.let { rootProject.file(it) }
+// 只有 keystore 文件真的存在才启用签名,占位符或路径打错时回落到 unsigned
+val hasReleaseSigning = releaseStoreFile?.exists() == true
 
 android {
     namespace = "com.sonlet.app"
@@ -34,13 +38,13 @@ android {
     }
 
     if (!hasReleaseSigning) {
-        logger.lifecycle("未找到 keystore.properties,Release 构建将不签名")
+        logger.lifecycle("未配置可用的签名密钥(keystore.properties 与 keystore 文件),Release 构建将不签名")
     }
 
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storeFile = releaseStoreFile
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
