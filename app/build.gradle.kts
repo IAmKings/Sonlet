@@ -1,8 +1,20 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+// 签名配置来自 rootProject/keystore.properties(本地自建、CI 从 Secrets 还原),不入库
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
+}
+val hasReleaseSigning = !keystoreProperties.getProperty("storeFile").isNullOrBlank()
 
 android {
     namespace = "com.sonlet.app"
@@ -21,6 +33,21 @@ android {
         }
     }
 
+    if (!hasReleaseSigning) {
+        logger.lifecycle("未找到 keystore.properties,Release 构建将不签名")
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -28,8 +55,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // G08 验证用途:本地以 debug 签名跑 Release 构建;正式分发前替换专用签名
-            signingConfig = signingConfigs.getByName("debug")
+            // 签名取自 keystore.properties;缺失时产出 unsigned APK,不会静默用 debug 证书
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

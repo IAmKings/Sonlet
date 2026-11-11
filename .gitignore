@@ -13,6 +13,8 @@
 **/build/
 *.jks
 *.keystore
+# Release 签名参数(storeFile 路径与口令),由开发者本地或 CI 生成
+/keystore.properties
 
 # 本地测试缓存
 __pycache__/

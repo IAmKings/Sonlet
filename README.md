@@ -61,6 +61,29 @@ scripts/fetch_model.sh
 
 安装到真机:`adb install -r app/build/outputs/apk/debug/app-debug.apk`,或直接在 Android Studio 运行。首次启动自动进行模型 SHA-256 校验(约 1–2 秒),通过后进入 READY。
 
+## Release 签名
+
+Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。本地首次生成:
+
+```sh
+keytool -genkeypair -keystore release.jks -storetype PKCS12 \
+  -alias sonlet -keyalg RSA -keysize 2048 -validity 10000
+printf 'storeFile=release.jks\nstorePassword=你的口令\nkeyAlias=sonlet\nkeyPassword=你的口令\n' > keystore.properties
+```
+
+没有这个文件时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
+
+CI 里的签名走手动触发的 `release` job(GitHub → Actions → CI → Run workflow),需要四个仓库 secret:
+
+| secret | 内容 |
+|---|---|
+| `RELEASE_KEYSTORE_BASE64` | `base64 -i release.jks` 的输出 |
+| `RELEASE_STORE_PASSWORD` | keystore 口令 |
+| `RELEASE_KEY_ALIAS` | 密钥别名 |
+| `RELEASE_KEY_PASSWORD` | 密钥口令 |
+
+job 在构建后用 `apksigner verify` 校验签名,APK 作为 artifact 上传。
+
 ## 已知限制(P0/P1,如实记录;T4-05 已签署 Conditional Go,2026-11-04)
 
 - 仅 arm64-v8a;其他 ABI 设备未包含原生库。
