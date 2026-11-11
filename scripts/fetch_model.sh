@@ -24,10 +24,22 @@ VAD_SHA256="9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
 mkdir -p "${CACHE_DIR}" "${MODEL_DIR}" "${TEST_WAV_DIR}"
 ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE_NAME}"
 
+# 校验工具:Linux 用 sha256sum,macOS 用 shasum,两者都没有时退回 openssl
+sha256_of() {
+    local file="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "${file}" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "${file}" | awk '{print $1}'
+    else
+        openssl dgst -sha256 "${file}" | awk '{print $NF}'
+    fi
+}
+
 verify_sha256() {
     local file="$1" expected="$2"
     local actual
-    actual="$(shasum -a 256 "${file}" | awk '{print $1}')"
+    actual="$(sha256_of "${file}")"
     if [[ "${actual}" != "${expected}" ]]; then
         echo "SHA-256 校验失败: ${file}" >&2
         echo "  期望: ${expected}" >&2
@@ -42,7 +54,7 @@ extract_file() {
     mv "${CACHE_DIR}/${ARCHIVE_NAME%.tar.bz2}/${member}" "${dest}"
 }
 
-if [[ ! -f "${ARCHIVE_PATH}" ]] || [[ "$(shasum -a 256 "${ARCHIVE_PATH}" | awk '{print $1}')" != "${ARCHIVE_SHA256}" ]]; then
+if [[ ! -f "${ARCHIVE_PATH}" ]] || [[ "$(sha256_of "${ARCHIVE_PATH}")" != "${ARCHIVE_SHA256}" ]]; then
     echo "下载模型归档: ${ARCHIVE_URL}"
     rm -f "${ARCHIVE_PATH}"
     curl -fL --retry 3 --retry-delay 2 -C - -o "${ARCHIVE_PATH}" "${ARCHIVE_URL}" \
