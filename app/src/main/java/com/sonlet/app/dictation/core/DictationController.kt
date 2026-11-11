@@ -388,7 +388,8 @@ class DictationController(
             AudioCaptureErrorCode.READ_FAILED -> DictationErrorCode.AUDIO_READ_FAILED
             AudioCaptureErrorCode.INIT_FAILED -> DictationErrorCode.AUDIO_INIT_FAILED
             AudioCaptureErrorCode.RECORDER_BUSY -> DictationErrorCode.MIC_BUSY
-            AudioCaptureErrorCode.CANCELLED -> DictationErrorCode.SESSION_CANCELLED
+            // CANCELLED 不走错误映射:runSession 已把取消视为正常收敛(不进入 ERROR)
+            else -> DictationErrorCode.AUDIO_READ_FAILED
         }
         is AsrEngineException -> when (code) {
             AsrErrorCode.MODEL_NOT_FOUND -> DictationErrorCode.MODEL_NOT_FOUND

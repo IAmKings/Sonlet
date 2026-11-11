@@ -33,22 +33,21 @@ enum class DictationPhase {
     TRANSCRIBING, CANCELLING, ERROR,
 }
 
-/** 听写层错误码(PRD §10.4 全集) */
+/**
+ * 听写层错误码(PRD §10.4 中会进入 ERROR 状态的子集)。
+ * 轻提示/自动转写类事实(太短、达上限、空结果、路由变化、取消)由 [DictationEvent] 表达,
+ * 不进 ERROR 态(DESIGN.md §6)。
+ */
 enum class DictationErrorCode {
     MIC_PERMISSION_DENIED,
     MIC_PERMISSION_REVOKED,
     MIC_BUSY,
     AUDIO_INIT_FAILED,
     AUDIO_READ_FAILED,
-    AUDIO_ROUTE_CHANGED,
     MODEL_NOT_FOUND,
     MODEL_CORRUPTED,
     MODEL_LOAD_FAILED,
-    ASR_EMPTY_RESULT,
     ASR_DECODE_FAILED,
-    AUDIO_TOO_SHORT,
-    AUDIO_TOO_LONG,
-    SESSION_CANCELLED,
     UNSUPPORTED_AUDIO_FORMAT,
 }
 

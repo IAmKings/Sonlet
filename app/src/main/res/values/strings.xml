@@ -41,15 +41,10 @@
     <string name="err_MIC_BUSY">麦克风暂时不可用</string>
     <string name="err_AUDIO_INIT_FAILED">无法启动录音</string>
     <string name="err_AUDIO_READ_FAILED">录音中断</string>
-    <string name="err_AUDIO_ROUTE_CHANGED">音频设备已变化</string>
     <string name="err_MODEL_NOT_FOUND">离线模型不可用</string>
     <string name="err_MODEL_CORRUPTED">模型文件损坏</string>
     <string name="err_MODEL_LOAD_FAILED">无法加载离线模型</string>
-    <string name="err_ASR_EMPTY_RESULT">没有识别出语音</string>
     <string name="err_ASR_DECODE_FAILED">识别失败</string>
-    <string name="err_AUDIO_TOO_SHORT">录音太短</string>
-    <string name="err_AUDIO_TOO_LONG">已达到录音上限</string>
-    <string name="err_SESSION_CANCELLED">已取消语音输入</string>
     <string name="err_UNSUPPORTED_AUDIO_FORMAT">设备暂不支持当前录音格式</string>
 
     <!-- 权限说明(DESIGN.md §7:就近说明面) -->

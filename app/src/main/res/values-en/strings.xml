@@ -35,15 +35,10 @@
     <string name="err_MIC_BUSY">Microphone temporarily unavailable</string>
     <string name="err_AUDIO_INIT_FAILED">Could not start recording</string>
     <string name="err_AUDIO_READ_FAILED">Recording interrupted</string>
-    <string name="err_AUDIO_ROUTE_CHANGED">Audio device changed</string>
     <string name="err_MODEL_NOT_FOUND">Offline model unavailable</string>
     <string name="err_MODEL_CORRUPTED">Model files are corrupted</string>
     <string name="err_MODEL_LOAD_FAILED">Could not load the offline model</string>
-    <string name="err_ASR_EMPTY_RESULT">No speech recognized</string>
     <string name="err_ASR_DECODE_FAILED">Transcription failed</string>
-    <string name="err_AUDIO_TOO_SHORT">Recording too short</string>
-    <string name="err_AUDIO_TOO_LONG">Recording limit reached</string>
-    <string name="err_SESSION_CANCELLED">Voice input cancelled</string>
     <string name="err_UNSUPPORTED_AUDIO_FORMAT">This device does not support the required audio format</string>
 
     <string name="permission_title">Allow microphone permission</string>

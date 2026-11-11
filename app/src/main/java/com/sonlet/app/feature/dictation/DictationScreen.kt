@@ -613,15 +613,10 @@ fun errorTextRes(code: DictationErrorCode?): Int = when (code) {
     DictationErrorCode.MIC_BUSY -> R.string.err_MIC_BUSY
     DictationErrorCode.AUDIO_INIT_FAILED -> R.string.err_AUDIO_INIT_FAILED
     DictationErrorCode.AUDIO_READ_FAILED -> R.string.err_AUDIO_READ_FAILED
-    DictationErrorCode.AUDIO_ROUTE_CHANGED -> R.string.err_AUDIO_ROUTE_CHANGED
     DictationErrorCode.MODEL_NOT_FOUND -> R.string.err_MODEL_NOT_FOUND
     DictationErrorCode.MODEL_CORRUPTED -> R.string.err_MODEL_CORRUPTED
     DictationErrorCode.MODEL_LOAD_FAILED -> R.string.err_MODEL_LOAD_FAILED
-    DictationErrorCode.ASR_EMPTY_RESULT -> R.string.err_ASR_EMPTY_RESULT
     DictationErrorCode.ASR_DECODE_FAILED -> R.string.err_ASR_DECODE_FAILED
-    DictationErrorCode.AUDIO_TOO_SHORT -> R.string.err_AUDIO_TOO_SHORT
-    DictationErrorCode.AUDIO_TOO_LONG -> R.string.err_AUDIO_TOO_LONG
-    DictationErrorCode.SESSION_CANCELLED -> R.string.err_SESSION_CANCELLED
     DictationErrorCode.UNSUPPORTED_AUDIO_FORMAT -> R.string.err_UNSUPPORTED_AUDIO_FORMAT
     null -> R.string.err_ASR_DECODE_FAILED
 }
