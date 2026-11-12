@@ -97,6 +97,7 @@ job 在构建后用 `apksigner verify` 校验签名,APK 作为 artifact 上传�
 - 中英混说准确率未量化(AC-P0-020,评测工装就绪,语料提供后可一键补测,见 docs/accuracy_eval.md)。
 - 通话打断无音频焦点协作,依赖采集读取失败兜底(蓝牙/拔线场景已覆盖)。
 - 许可证原文已核(均为 MIT/Apache-2.0),法务签字为对外分发前置条件;当前限内部验证与受限内测(docs/release_decision.md)。
+- Dependabot 报告的 61 条依赖告警全部位于构建工具链(classpath),不进入 APK;随 AGP/Kotlin 插件升级清理,定性见 docs/dependency_security.md。
 - P2(流式/多引擎/模型下载/端侧 LLM/AAR)经 2026-11-04 决策不启动。
 
 ## Git 提交
