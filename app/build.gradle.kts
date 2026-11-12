@@ -69,10 +69,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
@@ -86,6 +82,13 @@ android {
         jniLibs {
             useLegacyPackaging = false
         }
+    }
+}
+
+// Kotlin 2.4 起 `kotlinOptions.jvmTarget` 已移除,统一走 compilerOptions DSL
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
