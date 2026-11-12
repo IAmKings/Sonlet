@@ -1,6 +1,6 @@
 # 依赖安全说明:构建期告警与运行时依赖
 
-> 状态:定性文档,2026-11-11 建立。复核条件见文末。
+> 状态:定性文档,2026-11-11 建立;2026-11-13 完成阶段 2 迁移并复核,结果见 §8。复核条件见 §6。
 > 结论先写:**GitHub Dependabot 报告的 61 条依赖告警全部位于构建工具链(classpath),不进入 APK,不影响安装到用户设备上的产物。**
 
 ## 1. 现象
@@ -84,7 +84,7 @@ classpath
 
 1. **阶段 0(本文档)**:完成定性,避免把构建期告警误判为运行时漏洞。
 2. **阶段 1**:逐个评审 Dependabot PR 的 CI 结果,只合并真正可合的维护性升级。
-3. **阶段 2**:Gradle 9.6 → AGP 9.5.1 → compileSdk 37 → Compose BOM 2026.09,以及 Kotlin 2.4 + coroutines 1.11,在单独分支完成,通过完整回归后合并。这是清空 61 条告警的唯一路径。
+3. **阶段 2(已完成,见 §8)**:Gradle 9.6 → AGP 9.5.1 → compileSdk 37 → Compose BOM 2026.09,以及 Kotlin 2.4 + coroutines 1.11,在单独分支完成,通过完整回归后合并(PR #11)。
 4. **阶段 3**:给 `.github/dependabot.yml` 加分组与 major 版本屏蔽,降低评审噪音。
 
 阶段 2 的验收标准:`testDebugUnitTest` 全绿、真机 4 个测试类全绿、长稳测试通过、`assembleRelease` 产物通过 `apksigner verify`、CI 全绿;合并后用 `./gradlew buildEnvironment` 复核 61 条归零。
@@ -102,3 +102,30 @@ classpath
 
 - 本文档未 dismiss 任何 Dependabot 告警。告警保持可见,作为阶段 2 的待办清单存在;若需要清理告警面板,可用 `vulnerable_code_not_in_execute_path` 理由批量 dismiss,但必须在本文档登记与复核条件,否则等于把风险藏起来。
 - 依赖仅做了 Dependabot 层面的漏洞比对,未运行独立的 SBOM / CVE 扫描工具。
+
+## 8. 2026-11-13 迁移后的复核
+
+阶段 2 已合并(PR #11,main `18fd1b9`),工具链变为 Gradle 9.6.0 / AGP 9.5.1 / compileSdk 37 / Compose BOM 2026.09.00,并按 AGP 9 要求移除了 `org.jetbrains.kotlin.android` 插件(内置 Kotlin)。
+
+`./gradlew buildEnvironment` 复核结果:
+
+| 包 | 迁移前 | 迁移后 | 是否越过修复线 |
+|---|---|---|---|
+| io.netty:*(7 个坐标,41 条) | 4.1.x | **已不在依赖图中(0 条)** | 消失 |
+| org.bouncycastle:bcprov-jdk18on | 1.77 | 1.80.2 | 是(需 1.80.2) |
+| org.bouncycastle:bcpkix-jdk18on | 1.77 | 1.80.2 | **否(需 1.84)** |
+| com.google.guava:guava | 32.0.1-jre | 33.4.0-jre | **否(需 33.7.2)** |
+| com.google.protobuf:protobuf-java | 3.22.3 | 3.25.5 | 是(需 3.25.5) |
+| commons-io:commons-io | 2.13.0 | 2.16.1 | 是(需 2.14.0) |
+| org.apache.commons:commons-compress | 1.21 | 1.27.1 | 是(需 1.26.0) |
+| org.bitbucket.b_c:jose4j | 0.9.5 | 0.9.5 | **否(需 0.9.6)** |
+| org.jdom:jdom2 | 2.0.6 | 2.0.6 | **否(需 2.0.6.1)** |
+| kotlin-gradle-plugin | 2.0.21 | 2.4.21 | 随插件升级消失 |
+
+按本地依赖图推断,应关闭约 55 条,剩余 5 条:bcpkix 2 条、guava 1 条、jose4j 1 条、jdom2 1 条。这 5 条仍由 AGP 9.5.1 内部传递引入。
+
+**未对这些残留做版本强制**:它们位于 AGP 自身的运行时依赖上,用 `resolutionStrategy.force` 顶到更高版本,收益是关掉 5 条构建期告警,风险是构建工具行为异常(这类问题通常表现为难以定位的增量构建或打包失败),收益与风险不成比例。等 AGP 后续版本自行跟进。
+
+> 注:本文档更新时 Dependabot 面板尚未重新扫描(最后更新停留在 2026-11-11),上表以 `buildEnvironment` 的实际解析结果为准;面板刷新后如与本表不一致,以面板为准并回填此处。
+
+运行时结论不变:上述库仍不出现在 `releaseRuntimeClasspath` 中,不进 APK。
