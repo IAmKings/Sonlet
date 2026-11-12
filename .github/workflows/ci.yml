@@ -26,7 +26,7 @@ jobs:
           java-version: '21'
 
       # 该 action 的 packages 默认含 tools,而 tools 已从 SDK 仓库下架,会导致安装失败
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: platform-tools platforms;android-35
 
@@ -68,7 +68,7 @@ jobs:
           java-version: '21'
 
       # 该 action 的 packages 默认含 tools,而 tools 已从 SDK 仓库下架,会导致安装失败
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: platform-tools platforms;android-35
 
@@ -109,7 +109,7 @@ jobs:
           java-version: '21'
 
       # 该 action 的 packages 默认含 tools,而 tools 已从 SDK 仓库下架,会导致安装失败
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: platform-tools platforms;android-35
 
