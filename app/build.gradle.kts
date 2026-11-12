@@ -3,7 +3,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -22,7 +21,7 @@ val hasReleaseSigning = releaseStoreFile?.exists() == true
 
 android {
     namespace = "com.sonlet.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.sonlet.app"
