@@ -137,6 +137,8 @@ jobs:
             printf 'keyAlias=%s\n' "$KEY_ALIAS"
             printf 'keyPassword=%s\n' "$KEY_PASSWORD"
           } > keystore.properties
+          # 打印还原出的 keystore 指纹,便于与本地 shasum -a 256 release.jks 对照
+          echo "keystore sha256: $(sha256sum "$RUNNER_TEMP/release.jks" | cut -d' ' -f1)"
 
       # 先用 keytool 单独验一次口令,失败时给出可操作的提示,而不是埋在半页 Gradle 堆栈里
       - name: 检查密钥口令
@@ -149,7 +151,7 @@ jobs:
                -alias "$KEY_ALIAS" > /dev/null 2>&1; then
             echo "storePassword 可解锁 keystore"
           else
-            echo "::error::RELEASE_STORE_PASSWORD 无法解锁 keystore:口令与 release.jks 不匹配(常见原因是粘贴时带入尾随空格,或密钥重建后未更新 secret)"
+            echo "::error::RELEASE_STORE_PASSWORD 无法解锁 keystore:口令与 release.jks 不匹配(常见原因是粘贴时带入尾随空格,或密钥重建后未更新 secret);当前口令长度 ${#STORE_PASSWORD}"
             exit 1
           fi
           if [ "$STORE_PASSWORD" != "$KEY_PASSWORD" ]; then
