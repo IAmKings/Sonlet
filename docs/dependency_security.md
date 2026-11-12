@@ -107,25 +107,29 @@ classpath
 
 阶段 2 已合并(PR #11,main `18fd1b9`),工具链变为 Gradle 9.6.0 / AGP 9.5.1 / compileSdk 37 / Compose BOM 2026.09.00,并按 AGP 9 要求移除了 `org.jetbrains.kotlin.android` 插件(内置 Kotlin)。
 
-`./gradlew buildEnvironment` 复核结果:
+Dependabot 重新扫描后面板从 **61 条降到 8 条**(1 critical / 4 high / 3 medium),8 条的 `manifest_path` 仍全部是 `settings.gradle.kts`,`releaseRuntimeClasspath` 命中 0 条。即:这次迁移关掉了 53 条,剩余部分仍全部位于构建期。
 
-| 包 | 迁移前 | 迁移后 | 是否越过修复线 |
-|---|---|---|---|
-| io.netty:*(7 个坐标,41 条) | 4.1.x | **已不在依赖图中(0 条)** | 消失 |
-| org.bouncycastle:bcprov-jdk18on | 1.77 | 1.80.2 | 是(需 1.80.2) |
-| org.bouncycastle:bcpkix-jdk18on | 1.77 | 1.80.2 | **否(需 1.84)** |
-| com.google.guava:guava | 32.0.1-jre | 33.4.0-jre | **否(需 33.7.2)** |
-| com.google.protobuf:protobuf-java | 3.22.3 | 3.25.5 | 是(需 3.25.5) |
-| commons-io:commons-io | 2.13.0 | 2.16.1 | 是(需 2.14.0) |
-| org.apache.commons:commons-compress | 1.21 | 1.27.1 | 是(需 1.26.0) |
-| org.bitbucket.b_c:jose4j | 0.9.5 | 0.9.5 | **否(需 0.9.6)** |
-| org.jdom:jdom2 | 2.0.6 | 2.0.6 | **否(需 2.0.6.1)** |
-| kotlin-gradle-plugin | 2.0.21 | 2.4.21 | 随插件升级消失 |
+`./gradlew buildEnvironment` 与告警面板对照:
 
-按本地依赖图推断,应关闭约 55 条,剩余 5 条:bcpkix 2 条、guava 1 条、jose4j 1 条、jdom2 1 条。这 5 条仍由 AGP 9.5.1 内部传递引入。
+| 包 | 迁移前 | 迁移后 | 剩余告警 | 修复版本线 |
+|---|---|---|---|---:|---|
+| io.netty:*(7 个坐标) | 4.1.x | 已不在依赖图中 | 0(原 41) | — |
+| org.bouncycastle:bcprov-jdk18on | 1.77 | 1.80.2 | 2 | 1.85 |
+| org.bouncycastle:bcpkix-jdk18on | 1.77 | 1.80.2 | 1 | 1.84 |
+| com.google.guava:guava | 32.0.1-jre | 33.4.0-jre | 1 | 33.7.2 |
+| org.apache.commons:commons-lang3 | — | 3.16.0 | 1 | 3.18.0 |
+| org.apache.httpcomponents:httpclient | — | 4.5.6(图内另见 4.5.14) | 1 | 4.5.13 |
+| org.bitbucket.b_c:jose4j | 0.9.5 | 0.9.5 | 1 | 0.9.6 |
+| org.jdom:jdom2 | 2.0.6 | 2.0.6 | 1 | 2.0.6.1 |
+| com.google.protobuf:protobuf-java | 3.22.3 | 3.25.5 | 0 | — |
+| commons-io:commons-io | 2.13.0 | 2.16.1 | 0 | — |
+| org.apache.commons:commons-compress | 1.21 | 1.27.1 | 0 | — |
+| org.jetbrains.kotlin:kotlin-gradle-plugin | 2.0.21 | 2.4.21 | 0 | — |
 
-**未对这些残留做版本强制**:它们位于 AGP 自身的运行时依赖上,用 `resolutionStrategy.force` 顶到更高版本,收益是关掉 5 条构建期告警,风险是构建工具行为异常(这类问题通常表现为难以定位的增量构建或打包失败),收益与风险不成比例。等 AGP 后续版本自行跟进。
+其中 commons-lang3、httpclient 与 bcprov 的新告警是**新披露的公告**命中 AGP 9.5.1 的新依赖图,不是迁移引入的问题。
 
-> 注:本文档更新时 Dependabot 面板尚未重新扫描(最后更新停留在 2026-11-11),上表以 `buildEnvironment` 的实际解析结果为准;面板刷新后如与本表不一致,以面板为准并回填此处。
+**未对残留做版本强制**:这些版本由 AGP 自身传递引入,用 `resolutionStrategy.force` 顶上去,收益是关掉 8 条构建期告警,风险是构建工具行为异常(通常表现为难以定位的增量构建或打包失败)。待 AGP 后续版本自行跟进,或改为 dismiss 并在本文档登记。
 
 运行时结论不变:上述库仍不出现在 `releaseRuntimeClasspath` 中,不进 APK。
+
+后续可选动作(未做):dismiss 这 8 条并附 `vulnerable_code_not_in_execute_path` 理由;或按上方修复线在 AGP 升级时一并观察。
