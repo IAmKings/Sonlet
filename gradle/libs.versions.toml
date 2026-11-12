@@ -1,7 +1,7 @@
 # Sonlet 依赖版本基线(全部锁定,不允许动态版本;参见 docs/third_party_versions.md)
 
 [versions]
-agp = "8.7.3"
+agp = "9.5.1"
 kotlin = "2.4.21"
 coreKtx = "1.15.0"
 lifecycle = "2.8.7"
