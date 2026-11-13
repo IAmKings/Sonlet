@@ -19,7 +19,8 @@ TOKENS_SHA256="f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
 
 VAD_NAME="silero_vad.onnx"
 VAD_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${VAD_NAME}"
-VAD_SHA256="9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+# 与仓库中 app/src/main/assets/vad/silero_vad.onnx 一致(该文件随库提交,设备测试即用它)
+VAD_SHA256="a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28"
 
 mkdir -p "${CACHE_DIR}" "${MODEL_DIR}" "${TEST_WAV_DIR}"
 ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE_NAME}"
@@ -74,12 +75,13 @@ echo "提取固定测试样本(zh/en)…"
 extract_file "test_wavs/zh.wav" "${TEST_WAV_DIR}/zh.wav"
 extract_file "test_wavs/en.wav" "${TEST_WAV_DIR}/en.wav"
 
-# P1 VAD 小模型(632KB):随库提交哈希锁定副本,此处仅校验一致性
+# P1 VAD 小模型(1.8MB):随库提交,此处只校验;缺失时才下载
 VAD_PATH="${REPO_ROOT}/app/src/main/assets/vad/${VAD_NAME}"
 if [[ -f "${VAD_PATH}" ]]; then
     verify_sha256 "${VAD_PATH}" "${VAD_SHA256}"
 else
-    echo "下载 VAD 模型: ${VAD_URL}"
+    echo "VAD 不在仓库中,尝试下载: ${VAD_URL}"
+    mkdir -p "$(dirname "${VAD_PATH}")"
     curl -fL --retry 3 --retry-delay 2 -o "${VAD_PATH}" "${VAD_URL}"
     verify_sha256 "${VAD_PATH}" "${VAD_SHA256}"
 fi
