@@ -133,3 +133,15 @@ Dependabot 重新扫描后面板从 **61 条降到 8 条**(1 critical / 4 high /
 运行时结论不变:上述库仍不出现在 `releaseRuntimeClasspath` 中,不进 APK。
 
 后续可选动作(未做):dismiss 这 8 条并附 `vulnerable_code_not_in_execute_path` 理由;或按上方修复线在 AGP 升级时一并观察。
+
+**2026-11-13 决定:不强制改版本,也不 dismiss,等 AGP 后续版本把 bouncycastle 带到 1.85。**
+
+其中 critical 一条是 `bcprov-jdk18on` 1.80.2(CVE-2026-8763,CVSS 9.1,Name Constraints 通过 rfc822Name/URI 末尾的点绕过)。在本仓库的实际触发面很小:`sdk-common-32.5.1.jar` 的 575 个类里只有 `com.android.tools.ide.common.signing.KeystoreHelper` 引用 bouncycastle,只用到 asn1/cert 的构造与解析,不涉及证书链校验——这是静态推断,不是运行时验证。
+
+复核方法:
+
+```bash
+./gradlew buildEnvironment | grep bcprov-jdk18on   # 看到 1.85 或更高即自动关闭
+```
+
+该决定只影响构建机,产物侧不变(`releaseRuntimeClasspath` 仍命中 0 条)。
