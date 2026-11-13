@@ -96,6 +96,8 @@ jobs:
           MINOR=$(( 10#${MINOR%%[!0-9]*} ))
           PATCH=$(( 10#${PATCH%%[!0-9]*} ))
           VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          # AGP 要求 versionCode 为正整数,演练版(v0.0.0)与 0.x 首版都可能算出 0
+          if [ "$VERSION_CODE" -lt 1 ]; then VERSION_CODE=1; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "版本 $VERSION(versionCode $VERSION_CODE)"
