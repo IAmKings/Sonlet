@@ -1,4 +1,5 @@
 version: 2
+
 updates:
   - package-ecosystem: gradle
     directory: /
@@ -8,6 +9,56 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+    # 同一次升级里改动的同类依赖合并成一个 PR,减少评审噪音。
+    # 组内只收 minor/patch;major 仍单独出现,再由下方 ignore 决定是否屏蔽。
+    groups:
+      compose:
+        patterns:
+          - "androidx.compose*"
+        update-types:
+          - minor
+          - patch
+      androidx:
+        patterns:
+          - "androidx.*"
+        exclude-patterns:
+          - "androidx.compose*"
+        update-types:
+          - minor
+          - patch
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx:*"
+        update-types:
+          - minor
+          - patch
+      misc:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "androidx.*"
+          - "org.jetbrains.kotlinx:*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # 工具链的大版本互相牵制:AGP 9 内置 Kotlin、compileSdk 与 Compose BOM 要求连锁,
+      # 2026-11 的 AGP 9 迁移就是四处联动才通过的。交给 Dependabot 只会开出一个必然红的 PR,
+      # 这类升级按 docs/dependency_security.md 的流程人工排期。
+      # 注意:ignore 不作用于安全更新,已披露漏洞仍会正常开 PR。
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "com.android.application"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "org.jetbrains.kotlin:*"
+        update-types:
+          - version-update:semver-major
+      # Compose BOM 的大版本要求使用方 compileSdk 跟进(2026.09 要求 37),同样人工处理。
+      - dependency-name: "androidx.compose:compose-bom"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -15,3 +66,10 @@ updates:
       interval: monthly
     labels:
       - ci
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
