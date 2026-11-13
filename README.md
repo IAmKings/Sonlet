@@ -61,6 +61,18 @@ scripts/fetch_model.sh
 
 安装到真机:`adb install -r app/build/outputs/apk/debug/app-debug.apk`,或直接在 Android Studio 运行。首次启动自动进行模型 SHA-256 校验(约 1–2 秒),通过后进入 READY。
 
+## 发布
+
+打一个 `v` 开头的 tag 即触发 `.github/workflows/release.yml`:CI 拉取并校验模型资产、构建签名 APK、检查 APK 内确实含 `assets/sensevoice/model.int8.onnx`,再上传到 GitHub Release。
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+tag 必须形如 `v1.2.3`,版本号(versionName)取自理名部分,versionCode 按 `major*10000 + minor*100 + patch` 计算。想先演练不发版,可在 Actions 里手动运行 `Release`,默认 `dry_run` 只产出 artifact。
+
+模型归档约 460MB,按 SHA 缓存,首次发布之后的重跑不会重复下载。
+
 ## Release 签名
 
 Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。首次在本地执行:

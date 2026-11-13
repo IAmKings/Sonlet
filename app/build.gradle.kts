@@ -19,6 +19,10 @@ val releaseStoreFile = keystoreProperties.getProperty("storeFile")
 // 只有 keystore 文件真的存在才启用签名,占位符或路径打错时回落到 unsigned
 val hasReleaseSigning = releaseStoreFile?.exists() == true
 
+// 版本号由 CI 按 tag 注入(见 .github/workflows/release.yml),本地构建沿用下方默认值
+val sonletVersionName = providers.gradleProperty("sonletVersionName").orNull
+val sonletVersionCode = providers.gradleProperty("sonletVersionCode").orNull?.toInt()
+
 android {
     namespace = "com.sonlet.app"
     compileSdk = 37
@@ -27,8 +31,8 @@ android {
         applicationId = "com.sonlet.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = sonletVersionCode ?: 1
+        versionName = sonletVersionName ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // PRD D-04:首发仅 arm64-v8a
         ndk {
