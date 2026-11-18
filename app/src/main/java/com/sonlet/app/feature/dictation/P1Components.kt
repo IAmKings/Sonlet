@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -124,9 +126,23 @@ fun HoldToTalkButton(
             R.string.a11y_voice_button_start
         },
     )
+    val containerColor = if (interactive) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    }
+    val contentColor = if (interactive) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
     Box(
         modifier = modifier
             .scale(scale)
+            // 主按钮必须有容器:此前只有文字,onPrimary(白字)直接画在白面板上,
+            // 按住模式一进去就是一片空白(DESIGN.md §7 primary 底 + onPrimary 文字)。
+            .clip(RoundedCornerShape(12.dp))
+            .background(containerColor)
             .testTag(HOLD_TO_TALK_TEST_TAG)
             .then(
                 if (interactive) {
@@ -154,11 +170,7 @@ fun HoldToTalkButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (interactive) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-            },
+            color = contentColor,
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(vertical = 16.dp),
@@ -188,7 +200,9 @@ fun RecordingSurface(
         }
     }
     val barColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.outlineVariant
+    // 静音时的基线别用最浅的 outlineVariant:那会让波形看起来"没渲染出来";
+    // 用 onSurfaceVariant 压到 35%,既安静又能读出"正在听"。
+    val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
     Canvas(modifier = modifier.fillMaxWidth().height(36.dp)) {
         val barWidth = size.width / (WAVE_BARS * 2f)
         val step = barWidth * 2f
@@ -213,16 +227,27 @@ fun StyleSelector(
     onSelect: (DictationStyle) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    // 无标题时这四个 chip 看起来像编辑器的附属装饰,用户不知道它在控制交付结果。
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        StyleChip(DictationStyle.VERBATIM, selected, onSelect)
-        StyleChip(DictationStyle.NATURAL, selected, onSelect)
-        StyleChip(DictationStyle.CONCISE, selected, onSelect)
-        StyleChip(DictationStyle.NOTES, selected, onSelect)
+        Text(
+            text = stringResource(R.string.style_section_label),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StyleChip(DictationStyle.VERBATIM, selected, onSelect)
+            StyleChip(DictationStyle.NATURAL, selected, onSelect)
+            StyleChip(DictationStyle.CONCISE, selected, onSelect)
+            StyleChip(DictationStyle.NOTES, selected, onSelect)
+        }
     }
 }
 
