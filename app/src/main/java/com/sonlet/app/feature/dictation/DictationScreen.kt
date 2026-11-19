@@ -6,6 +6,7 @@ import android.media.AudioManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -708,13 +709,21 @@ private fun ModeToggleRow(
     if (!toggleVisible) return
     // 用 selected 表达"当前选中的是哪个",而不是拿 enabled 冒充选中:
     // 旧写法把当前模式画成禁用灰、另一项画成品牌橙,读起来恰好相反。
+    // 深色下 primaryContainer 是 #582516 的深红实心块,紧贴主按钮上方,两块暖色抢主次
+    // (DESIGN.md §1「录音状态必须比品牌装饰更明确」)。深色改中性容器 + 品牌色文字,
+    // 让主按钮独占暖色;浅色 primaryContainer 本就是淡橙,保持原样。
+    val dark = isSystemInDarkTheme()
+    val scheme = MaterialTheme.colorScheme
     val segColors = SegmentedButtonDefaults.colors(
-        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        activeBorderColor = MaterialTheme.colorScheme.primary,
-        inactiveContainerColor = MaterialTheme.colorScheme.surface,
-        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant,
+        // 深色下 primaryContainer 是 #6E2E1B 的深红实心块,紧贴主按钮上方,两块暖色抢主次;
+        // surfaceContainerHighest 未在主题里定义,会落回 M3 基线的紫灰。故用品牌色低透明度叠加,
+        // 既留在暖色调里,又不与主按钮争面积。浅色 primaryContainer 本就是淡橙,保持原样。
+        activeContainerColor = if (dark) scheme.primary.copy(alpha = 0.18f) else scheme.primaryContainer,
+        activeContentColor = if (dark) scheme.onSurface else scheme.onPrimaryContainer,
+        activeBorderColor = if (dark) scheme.primary.copy(alpha = 0.55f) else scheme.primary,
+        inactiveContainerColor = scheme.surface,
+        inactiveContentColor = scheme.onSurfaceVariant,
+        inactiveBorderColor = scheme.outlineVariant,
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         SegmentedButton(
