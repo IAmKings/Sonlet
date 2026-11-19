@@ -1,10 +1,15 @@
 package com.sonlet.app.feature.dictation
 
 import android.os.SystemClock
+import android.view.InputDevice
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -123,10 +128,12 @@ class VoiceActionRowGestureTest {
         }
         lastPoint = point
         val event = MotionEvent.obtain(downTime, now, action, point.x, point.y, 0)
+        event.source = InputDevice.SOURCE_TOUCHSCREEN
         try {
-            InstrumentationRegistry.getInstrumentation()
-                .uiAutomation
-                .injectInputEvent(event, true)
+            assertTrue(
+                "输入事件注入失败",
+                InstrumentationRegistry.getInstrumentation().uiAutomation.injectInputEvent(event, true),
+            )
         } finally {
             event.recycle()
         }
@@ -153,21 +160,25 @@ class VoiceActionRowGestureTest {
     ) {
         compose.setContent {
             SonletTheme {
-                ActionRow(
-                    state = DictationUiState(phase = phase.value),
-                    holdMode = true,
-                    onStart = {
-                        events += EVENT_START
-                        if (advanceOnStart) {
-                            phase.value = DictationPhase.STARTING
-                        }
-                    },
-                    onFinish = { events += EVENT_FINISH },
-                    onCancel = { events += EVENT_CANCEL },
-                    onRetryModel = {},
-                    onDismissError = {},
-                    onOpenSettings = {},
-                )
+                // API 35 强制 edge-to-edge。把控件放在屏幕中部以避开状态栏手势区。
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    ActionRow(
+                        state = DictationUiState(phase = phase.value),
+                        holdMode = true,
+                        onStart = { error("按住手势不得触发点击模式回调") },
+                        onHoldStart = {
+                            events += EVENT_START
+                            if (advanceOnStart) {
+                                phase.value = DictationPhase.STARTING
+                            }
+                        },
+                        onFinish = { events += EVENT_FINISH },
+                        onCancel = { events += EVENT_CANCEL },
+                        onRetryModel = {},
+                        onDismissError = {},
+                        onOpenSettings = {},
+                    )
+                }
             }
         }
     }

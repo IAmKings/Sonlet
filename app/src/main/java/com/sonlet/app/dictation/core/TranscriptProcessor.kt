@@ -59,8 +59,8 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
 
     /**
      * NATURAL:口语重复折叠。
-     * - 相邻重复 token("这个 这个"→"这个"),仅按空白分隔的整词折叠
-     * - 同一 CJK 字符 3 次以上连续重复("我我我"→"我");2 次重复不处理,
+     * - 折叠词表内相邻重复的口语词("这个 这个"→"这个")。
+     * - 折叠词表内 3 次以上连续重复的字("我我我"→"我");2 次重复不处理,
      *   避免"笑笑/天天"等叠词名词受损
      */
     private fun applyNatural(text: String, transformations: MutableList<String>): String {
@@ -68,7 +68,7 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
         val collapsedTokens = result.split(' ')
             .filter { it.isNotEmpty() }
             .fold(mutableListOf<String>()) { acc, token ->
-                if (acc.isEmpty() || acc.last() != token) acc.add(token)
+                if (acc.lastOrNull() != token || token !in REPEATED_WORDS) acc.add(token)
                 acc
             }
         val tokenJoined = collapsedTokens.joinToString(" ")
@@ -91,7 +91,7 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
             val ch = text[i]
             var run = 1
             while (i + run < text.length && text[i + run] == ch) run++
-            if (run >= 3 && isCollapsibleStutterChar(ch)) {
+            if (run >= 3 && ch in REPEATED_CHARS) {
                 sb.append(ch)
             } else {
                 repeat(run) { sb.append(ch) }
@@ -100,8 +100,6 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
         }
         return sb.toString()
     }
-
-    private fun isCollapsibleStutterChar(ch: Char): Boolean = ch.isLetterOrDigit() || ch.isHanIdeograph()
 
     /**
      * CONCISE:移除显式填充词表中的独立 token(空白分隔或标点邻接)。
@@ -112,7 +110,7 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
         val kept = tokens.filter { token ->
             val core = token.trim { !it.isLetterOrDigit() && !it.isHanIdeograph() }
             val coreLower = core.lowercase()
-            !(core in FILLERS_ZH || coreLower in FILLERS_EN)
+            !(core in FILLERS_ZH || coreLower in FILLERS_EN && core.any(Char::isLowerCase))
         }
         if (kept.size != tokens.size) {
             transformations += "remove_fillers"
@@ -137,8 +135,10 @@ class VerbatimTranscriptProcessor : TranscriptProcessor {
     }
 
     companion object {
+        private val REPEATED_WORDS = setOf("这个", "那个", "就是")
+        private const val REPEATED_CHARS = "我你妳他她它这那"
         /** 封闭填充词表:单音节、无独立语义承载(PRD §12.2 保守原则) */
         private val FILLERS_ZH = setOf("嗯", "呃", "唉", "诶", "噢", "喔", "嘞")
-        private val FILLERS_EN = setOf("um", "uh", "er", "erm", "hmm", "mm")
+        private val FILLERS_EN = setOf("um", "uh", "er", "erm", "hmm")
     }
 }

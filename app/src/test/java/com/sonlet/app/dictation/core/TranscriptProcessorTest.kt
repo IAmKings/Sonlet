@@ -70,6 +70,14 @@ class TranscriptProcessorTest {
     }
 
     @Test
+    fun `all styles preserve numeric and alphanumeric identifiers`() {
+        val input = "订单号 1000 1000 A111 A111 AAA AAA 一一一号 10 mm ER"
+        for (style in DictationStyle.entries) {
+            assertEquals(style.name, input, processor.process(input, style).formatted)
+        }
+    }
+
+    @Test
     fun `concise removes closed-set fillers`() {
         val result = processor.process("嗯 这个 方案 呃 可以", DictationStyle.CONCISE)
         assertEquals("这个 方案 可以", result.formatted)

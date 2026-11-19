@@ -53,6 +53,8 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
     /** P1 风格选择(§12.2):交付时读取;UI 通过 [styleFlow] 单向订阅,避免出现副本 */
     private val styleState = MutableStateFlow(DictationStyle.VERBATIM)
     val styleFlow: StateFlow<DictationStyle> = styleState.asStateFlow()
+    private val originalState = MutableStateFlow<String?>(null)
+    val latestOriginal: StateFlow<String?> = originalState.asStateFlow()
 
     private val controller = DictationController(
         engine = engine,
@@ -99,12 +101,20 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
                     is DictationEvent.TranscriptReady -> {
                         // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
                         val updated = TextInsertionPolicy.insert(editorValue, event.text)
+                        originalState.value = event.original
                         editorValue = updated
                         onEditorChanged?.invoke(updated)
                         toasts.send(Toast.Res(com.sonlet.app.R.string.msg_inserted))
                     }
-                    DictationEvent.TranscriptEmpty ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_empty))
+                    is DictationEvent.TranscriptEmpty -> {
+                        originalState.value = event.original
+                        val message = if (event.original == null) {
+                            com.sonlet.app.R.string.msg_empty
+                        } else {
+                            com.sonlet.app.R.string.msg_filtered
+                        }
+                        toasts.send(Toast.Res(message))
+                    }
                     DictationEvent.TooShort ->
                         toasts.send(Toast.Res(com.sonlet.app.R.string.msg_too_short))
                     DictationEvent.DurationCapped ->

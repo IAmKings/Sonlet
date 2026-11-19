@@ -16,7 +16,7 @@
 
 ## AndroidX / Kotlin(经 Maven 解析)
 
-AGP 8.7.3、Kotlin 2.0.21、AndroidX(core/lifecycle/activity/compose BOM 2024.12.01)、kotlinx-coroutines 1.9.0、androidx.test 均为 Apache-2.0;精确传递依赖以 `./gradlew :app:dependencies` 输出建立 SBOM 后归档。
+当前版本见 `gradle/libs.versions.toml`。候选 APK 还包含 AndroidX Graphics Path 1.0.1 的原生库。运行时传递依赖以 `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` 的解析结果为准，连同内置模型和原生库纳入 SBOM 复核。
 
 ## 初步合规结论(供法务复核,非最终结论)
 
@@ -31,5 +31,5 @@ AGP 8.7.3、Kotlin 2.0.21、AndroidX(core/lifecycle/activity/compose BOM 2024.12
 
 - [x] 归档四项组件 LICENSE 原文至 `docs/licenses/`
 - [ ] 法务/合规负责人签字确认上表
-- [ ] 发布产物 NOTICE 文件生成(签字后执行)
+- [x] 候选 APK 已打包 `assets/NOTICE.txt` 和归档许可原文，随分发签字复核完整性
 - [ ] 更新 `models/manifest.json` 的 `license_review` 字段为 CONFIRMED

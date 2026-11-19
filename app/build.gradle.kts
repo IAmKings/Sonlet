@@ -76,6 +76,10 @@ android {
         compose = true
     }
 
+    sourceSets.named("main") {
+        assets.directories.add(rootProject.file("docs/licenses").absolutePath)
+    }
+
     androidResources {
         // 模型按 PRD §11.1 随包内置;不压缩以便 mmap 加载(openFd 需要未压缩存储)
         noCompress += listOf("onnx", "txt")

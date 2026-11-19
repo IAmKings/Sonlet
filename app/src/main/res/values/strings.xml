@@ -68,5 +68,8 @@
     <string name="style_natural">自然</string>
     <string name="style_concise">精简</string>
     <string name="style_notes">笔记</string>
+    <string name="btn_view_original">查看转写原文</string>
+    <string name="msg_filtered">当前风格未生成文字，可查看转写原文。</string>
+    <string name="original_transcript_title">最近一次转写原文</string>
     <string name="a11y_waveform">实时录音音量</string>
 </resources>

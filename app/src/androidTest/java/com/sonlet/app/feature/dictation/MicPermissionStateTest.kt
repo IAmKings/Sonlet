@@ -67,4 +67,20 @@ class MicPermissionStateTest {
 
         assertEquals("refresh 后必须与系统事实一致", actuallyGranted, state.granted)
     }
+
+    @Test
+    fun permissionGrantConsumesOnlyExplicitTapRequest() {
+        val state = MicPermissionState(context)
+        state.startAfterGrant = false
+        assertFalse(state.onPermissionResult(granted = true, showRationale = false))
+        assertTrue(state.granted)
+
+        state.startAfterGrant = true
+        assertFalse(state.onPermissionResult(granted = false, showRationale = true))
+        assertFalse(state.onPermissionResult(granted = true, showRationale = false))
+
+        state.startAfterGrant = true
+        assertTrue(state.onPermissionResult(granted = true, showRationale = false))
+        assertFalse(state.onPermissionResult(granted = true, showRationale = false))
+    }
 }
