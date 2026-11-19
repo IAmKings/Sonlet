@@ -45,11 +45,11 @@
 
 | 项 | 值 |
 |---|---|
-| Gradle | 8.11.1(发行版 SHA-256 `f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6`) |
-| Android Gradle Plugin | 8.7.3 |
-| Kotlin | 2.0.21(含 `org.jetbrains.kotlin.plugin.compose` 2.0.21) |
-| Compose BOM | 2024.12.01 |
-| minSdk / targetSdk / compileSdk | 26 / 35 / 35 |
+| Gradle | 9.6.0（见 wrapper 配置） |
+| Android Gradle Plugin | 9.5.1 |
+| Kotlin | 2.4.21（含 `org.jetbrains.kotlin.plugin.compose` 2.4.21） |
+| Compose BOM | 2026.09.00 |
+| minSdk / targetSdk / compileSdk | 26 / 35 / 37 |
 | ABI | arm64-v8a(PRD D-04) |
 | Gradle JVM | Android Studio JBR 21(`org.gradle.java.home`) |
 

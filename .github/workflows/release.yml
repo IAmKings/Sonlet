@@ -1,31 +1,36 @@
 name: Release
 
-# 打 tag(v1.2.3)即发布:构建签名 APK → 校验资产完整性 → 上传到 GitHub Release。
-# workflow_dispatch 用于演练:默认 dry_run,只构建不发布。
+# 公开仓库的工作流只验证签名候选包。公开发布由负责人按候选包验收记录另行操作。
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 只构建、不创建 Release
-        type: boolean
-        default: true
+      candidate_tag:
+        description: 候选版本（如 v0.1.1）
+        type: string
+        required: true
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
-    name: 构建并发布 APK
+    name: 验证签名候选 APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: 校验候选版本
+        id: version
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        run: |
+          VERSION_CODE=$(python3 scripts/verify_release_apk.py "$CANDIDATE_TAG")
+          echo "tag=$CANDIDATE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
         with:
@@ -51,9 +56,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::缺少签名相关的 secret,无法发布"
+            echo "::error::缺少签名相关的 secret"
             exit 1
           fi
+          umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           {
             printf 'storeFile=%s\n' "$RUNNER_TEMP/release.jks"
@@ -63,7 +69,7 @@ jobs:
           } > keystore.properties
           if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass:env STORE_PASSWORD \
                  -alias "$KEY_ALIAS" > /dev/null 2>&1; then
-            echo "::error::RELEASE_STORE_PASSWORD 无法解锁 keystore(口令长度 ${#STORE_PASSWORD})"
+            echo "::error::RELEASE_STORE_PASSWORD 无法解锁 keystore"
             exit 1
           fi
 
@@ -77,77 +83,22 @@ jobs:
       - name: 获取模型资产
         run: bash scripts/fetch_model.sh
 
-      - name: 解析版本号
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF_NAME}"
-            case "$TAG" in
-              v[0-9]*) ;;
-              *) echo "::error::tag 必须形如 v1.2.3,当前为 $TAG"; exit 1 ;;
-            esac
-            VERSION="${TAG#v}"
-          else
-            VERSION="0.0.0-dispatch"
-          fi
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          # 非数字时按 0 处理,避免 set -u 下空值报错
-          MAJOR=$(( 10#${MAJOR%%[!0-9]*} ))
-          MINOR=$(( 10#${MINOR%%[!0-9]*} ))
-          PATCH=$(( 10#${PATCH%%[!0-9]*} ))
-          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
-          # AGP 要求 versionCode 为正整数,演练版(v0.0.0)与 0.x 首版都可能算出 0
-          if [ "$VERSION_CODE" -lt 1 ]; then VERSION_CODE=1; fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          echo "版本 $VERSION(versionCode $VERSION_CODE)"
-
       - name: 构建 Release
-        run: |
-          ./gradlew assembleRelease --console=plain \
-            -PsonletVersionName="${{ steps.version.outputs.version }}" \
-            -PsonletVersionCode="${{ steps.version.outputs.version_code }}"
-
-      # 历史上 CI 产物只有 29MB,原因是模型不在仓库里也没拉取;这一步确保不会再发出这种包
-      - name: 校验 APK 完整性
-        run: |
-          APK=app/build/outputs/apk/release/app-release.apk
-          ls -lh "$APK"
-          unzip -l "$APK" | grep -q "assets/sensevoice/model.int8.onnx" \
-            || { echo "::error::APK 缺少模型资产,拒绝发布"; exit 1; }
-          unzip -l "$APK" | grep -q "assets/sensevoice/tokens.txt" \
-            || { echo "::error::APK 缺少 tokens.txt,拒绝发布"; exit 1; }
-          SIZE=$(stat -c%s "$APK")
-          if [ "$SIZE" -lt 200000000 ]; then
-            echo "::error::APK 仅 $((SIZE / 1000000))MB,低于 200MB,疑似缺少模型"
-            exit 1
-          fi
-
-      - name: 校验签名
-        run: |
-          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
-          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
-
-      - name: 发布 GitHub Release
-        if: github.event_name == 'push'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANDIDATE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
-          APK=app/build/outputs/apk/release/app-release.apk
-          OUT="Sonlet-${{ steps.version.outputs.version }}-arm64-v8a.apk"
-          cp "$APK" "$OUT"
-          gh release create "${GITHUB_REF_NAME}" "$OUT" \
-            --title "Sonlet ${{ steps.version.outputs.version }}" \
-            --notes "端侧离线语音听写,仅 arm64-v8a。模型已内置,首次启动无需联网。" \
-            --generate-notes
+          ./gradlew testDebugUnitTest lintRelease assembleRelease --console=plain \
+            -PsonletVersionName="${CANDIDATE_TAG#v}" -PsonletVersionCode="$VERSION_CODE"
 
-      - name: 演练产物
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-apk-dryrun
-          path: app/build/outputs/apk/release/app-release.apk
+      - name: 校验候选 APK
+        env:
+          CANDIDATE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          python3 scripts/verify_release_apk.py "$CANDIDATE_TAG" \
+            --apk app/build/outputs/apk/release/app-release.apk \
+            --build-tools "$ANDROID_HOME/build-tools/36.0.0"
 
       - name: 清理签名参数
         if: always()
-        run: rm -f keystore.properties
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"

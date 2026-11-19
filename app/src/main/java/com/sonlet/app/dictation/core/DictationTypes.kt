@@ -6,7 +6,7 @@ package com.sonlet.app.dictation.core
  */
 
 sealed interface DictationCommand {
-    /** 开始一次听写(仅 READY 有效) */
+    /** 开始听写，或在可重试的录音/转写错误后重新开始 */
     data object Start : DictationCommand
 
     /** 结束并转写(仅 RECORDING 有效) */
@@ -56,6 +56,13 @@ internal fun DictationErrorCode?.isModelError(): Boolean = this == DictationErro
     this == DictationErrorCode.MODEL_CORRUPTED ||
     this == DictationErrorCode.MODEL_LOAD_FAILED
 
+internal fun DictationErrorCode?.canRetrySession(): Boolean = when (this) {
+    DictationErrorCode.MIC_BUSY, DictationErrorCode.AUDIO_INIT_FAILED,
+    DictationErrorCode.AUDIO_READ_FAILED, DictationErrorCode.ASR_DECODE_FAILED,
+    -> true
+    else -> false
+}
+
 data class DictationUiState(
     val phase: DictationPhase = DictationPhase.PREPARING,
     val sessionId: Long? = null,
@@ -101,11 +108,15 @@ fun holdButtonVisible(
 /** 一次性事件:结果交付与轻提示;不进入常驻状态 */
 sealed interface DictationEvent {
     /** 识别成功;交付层已通过 generation 与 resultId 校验 */
-    data class TranscriptReady(val sessionId: Long, val resultId: String, val text: String) :
-        DictationEvent
+    data class TranscriptReady(
+        val sessionId: Long,
+        val resultId: String,
+        val text: String,
+        val original: String?,
+    ) : DictationEvent
 
-    /** 未检测到可识别语音 */
-    data object TranscriptEmpty : DictationEvent
+    /** 无可插入文本。格式化清空时仍可查看原文。 */
+    data class TranscriptEmpty(val original: String? = null) : DictationEvent
 
     /** 录音太短( <300ms ),已忽略 */
     data object TooShort : DictationEvent

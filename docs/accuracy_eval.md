@@ -25,8 +25,9 @@ adb pull /sdcard/Android/data/com.sonlet.app/files/eval/accuracy_results.csv doc
 
 ## 输出说明
 
-- `accuracy_result` 行:每条样本的 CER(中)/ WER(英)、RTF、识别文本(仅本地日志)
-- `accuracy_summary` 行:分类平均 CER/WER 与 RTF P95 → 填入 `docs/release_checklist.md` G06
+- CSV 记录样本序号、语言、CER/WER、RTF 和引擎调用耗时。真值及识别原文留在评测过程中。
+- `accuracy_summary` 输出分类平均 CER/WER、RTF 和引擎耗时的 P50/P95。端到端交付延迟须单独测量。
+- 使用有效语料时，每类至少 30 条。缺少 WAV、真值无效或重复 WAV 会使评测失败。
 - 归一化口径:去标点、小写、全角转半角(见 `TextMetrics.normalize`),与 PRD §2.2 测量口径对齐
 
 ## 已知边界

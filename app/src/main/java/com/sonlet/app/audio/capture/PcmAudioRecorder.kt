@@ -101,25 +101,32 @@ class PcmAudioRecorder(
                     "RECORD_AUDIO not granted",
                 )
             }
-            this.options = options
+            val newBuffer = FloatArray(capacitySamples(options))
             val record = createRecord(options)
+            try {
+                record.startRecording()
+                if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                    throw AudioCaptureException(
+                        AudioCaptureErrorCode.INIT_FAILED,
+                        "startRecording did not enter recording state",
+                    )
+                }
+            } catch (failure: Exception) {
+                // 读取循环尚未接管资源。
+                releaseQuietly(record)
+                if (failure is IllegalStateException) {
+                    throw AudioCaptureException(AudioCaptureErrorCode.INIT_FAILED, "startRecording failed", failure)
+                }
+                throw failure
+            }
+            this.options = options
             audioRecord = record
             sampleCount = 0
             durationCapped = false
             stopRequested = false
-            buffer = FloatArray(capacitySamples(options))
+            buffer = newBuffer
             activeSessionId = sessionId
 
-            record.startRecording()
-            if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
-                releaseQuietly(record)
-                audioRecord = null
-                activeSessionId = null
-                throw AudioCaptureException(
-                    AudioCaptureErrorCode.INIT_FAILED,
-                    "startRecording did not enter recording state",
-                )
-            }
             Log.i(TAG, "capture_started sessionId=$sessionId sampleRate=${record.sampleRate}")
             readJob = scope.launch { readLoop(sessionId, record) }
         }
@@ -132,7 +139,7 @@ class PcmAudioRecorder(
                 "stop: session $sessionId does not own active session $activeSessionId",
             )
         }
-        val collected = shutdown()
+        val collected = shutdown(keepSamples = true)
         val durationMs = collected.samples.size * 1000L / options.sampleRate
         Log.i(
             TAG,
@@ -157,13 +164,15 @@ class PcmAudioRecorder(
     private class Collected(val samples: FloatArray, val capped: Boolean)
 
     /** 停止标志 + 解阻塞 + 等待读取循环收敛;重复停止返回空结果 */
-    private suspend fun shutdown(): Collected = stopMutex.withLock {
+    private suspend fun shutdown(keepSamples: Boolean = false): Collected = stopMutex.withLock {
         stopRequested = true
         // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略
         runCatching { audioRecord?.stop() }
         readJob?.join()
         mutex.withLock {
-            val collected = Collected(buffer.copyOf(sampleCount), durationCapped)
+            val samples = if (keepSamples) buffer.copyOf(sampleCount) else FloatArray(0)
+            val collected = Collected(samples, durationCapped)
+            buffer = FloatArray(0)
             audioRecord = null
             readJob = null
             activeSessionId = null

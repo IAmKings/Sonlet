@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -26,6 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -72,6 +77,7 @@ import com.sonlet.app.audio.capture.AudioInterruptionObserver
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationPhase
 import com.sonlet.app.dictation.core.HOLD_PHASES
+import com.sonlet.app.dictation.core.canRetrySession
 import com.sonlet.app.dictation.core.isModelError
 import com.sonlet.app.dictation.core.holdButtonVisible
 import com.sonlet.app.dictation.core.DictationStyle
@@ -87,6 +93,9 @@ fun DictationScreen(viewModel: DictationViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val permission = rememberMicPermissionState()
+    val resources by rememberUpdatedState(LocalResources.current)
+    val original by viewModel.latestOriginal.collectAsStateWithLifecycle()
+    var showOriginal by remember { mutableStateOf(false) }
 
     // 编辑器状态:以组合内为最新真值,写回 VM 供交付时使用(CC-04)。
     // 用 rememberSaveable 保存文本与光标:转屏/深色切换/进程重建都不得丢稿。
@@ -105,14 +114,21 @@ fun DictationScreen(viewModel: DictationViewModel) {
     LaunchedEffect(viewModel) {
         viewModel.toastFlow.collect { toast ->
             val message = when (toast) {
-                is DictationViewModel.Toast.Res -> context.getString(toast.id)
+                is DictationViewModel.Toast.Res -> resources.getString(toast.id)
             }
             snackbarHostState.showSnackbar(message)
         }
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        permission.startAfterGrant = false
         viewModel.onAppBackgrounded()
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        permission.refresh()
+        if (permission.granted && state.errorCode.isMicPermissionError()) {
+            viewModel.dismissError()
+        }
     }
 
     // AC-P0-015:输入设备被移除(蓝牙断连/拔线)时主动终止会话,
@@ -134,26 +150,18 @@ fun DictationScreen(viewModel: DictationViewModel) {
 
     val requestPermission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                permission.onGranted()
-                if (permission.pendingStart) {
-                    permission.pendingStart = false
-                    viewModel.startDictation()
-                }
-            } else {
-                val activity = context as? android.app.Activity
-                val showRationale = activity?.shouldShowRequestPermissionRationale(
-                    Manifest.permission.RECORD_AUDIO,
-                ) ?: true
-                permission.onDenied(showRationale)
+            val showRationale = (context as? android.app.Activity)
+                ?.shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) ?: true
+            if (permission.onPermissionResult(granted, showRationale)) {
+                viewModel.startDictation()
             }
         }
 
-    val onStartRequested: () -> Unit = {
+    val requestStart: (Boolean) -> Unit = { startAfterGrant ->
         if (permission.granted) {
             viewModel.startDictation()
         } else {
-            permission.pendingStart = true
+            permission.startAfterGrant = startAfterGrant
             requestPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
@@ -169,7 +177,7 @@ fun DictationScreen(viewModel: DictationViewModel) {
         val contentMaxWidth = if (compact) null else 720.dp
 
         val contentModifier = if (contentMaxWidth != null) {
-            Modifier.fillMaxWidth().widthIn(max = contentMaxWidth)
+            Modifier.widthIn(max = contentMaxWidth).fillMaxWidth()
         } else {
             Modifier.fillMaxWidth()
         }
@@ -188,6 +196,7 @@ fun DictationScreen(viewModel: DictationViewModel) {
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = horizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -220,6 +229,11 @@ fun DictationScreen(viewModel: DictationViewModel) {
                         selected = style,
                         onSelect = viewModel::setStyle,
                     )
+                    if (original != null) {
+                        TextButton(onClick = { showOriginal = true }) {
+                            Text(stringResource(R.string.btn_view_original))
+                        }
+                    }
                 }
                 ControlPanel(
                     state = state,
@@ -227,7 +241,8 @@ fun DictationScreen(viewModel: DictationViewModel) {
                     limitMs = viewModel.captureOptions.maxDurationMs,
                     onHoldModeChange = { holdMode = it },
                     modifier = Modifier.fillMaxWidth(),
-                    onStart = onStartRequested,
+                    onStart = { requestStart(true) },
+                    onHoldStart = { requestStart(false) },
                     onFinish = viewModel::finishDictation,
                     onCancel = viewModel::cancelDictation,
                     onRetryModel = viewModel::retryModel,
@@ -248,7 +263,27 @@ fun DictationScreen(viewModel: DictationViewModel) {
             )
         }
     }
+    val originalText = original
+    if (showOriginal && originalText != null) {
+        AlertDialog(
+            onDismissRequest = { showOriginal = false },
+            title = { Text(stringResource(R.string.original_transcript_title)) },
+            text = {
+                SelectionContainer(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(originalText)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showOriginal = false }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
 }
+
+private fun DictationErrorCode?.isMicPermissionError(): Boolean =
+    this == DictationErrorCode.MIC_PERMISSION_DENIED || this == DictationErrorCode.MIC_PERMISSION_REVOKED
 
 @Composable
 private fun Header() {
@@ -333,6 +368,7 @@ private fun ControlPanel(
     onHoldModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStart: () -> Unit,
+    onHoldStart: () -> Unit,
     onFinish: () -> Unit,
     onCancel: () -> Unit,
     onRetryModel: () -> Unit,
@@ -368,6 +404,7 @@ private fun ControlPanel(
                 state = state,
                 holdMode = holdMode,
                 onStart = onStart,
+                onHoldStart = onHoldStart,
                 onFinish = onFinish,
                 onCancel = onCancel,
                 onRetryModel = onRetryModel,
@@ -467,6 +504,7 @@ internal fun ActionRow(
     onRetryModel: () -> Unit,
     onDismissError: () -> Unit,
     onOpenSettings: () -> Unit,
+    onHoldStart: () -> Unit,
 ) {
     // 手势存活态:按住期间即使交互模式被切换,也必须保住按钮节点,否则松手事件丢失
     var gestureInProgress by remember { mutableStateOf(false) }
@@ -491,7 +529,7 @@ internal fun ActionRow(
                     .heightIn(min = 56.dp),
                 onPressStart = {
                     gestureInProgress = true
-                    onStart()
+                    onHoldStart()
                 },
                 onPressRelease = {
                     gestureInProgress = false
@@ -557,14 +595,13 @@ internal fun ActionRow(
                 modifier = Modifier.weight(1f),
             )
             DictationPhase.ERROR -> {
-                NeutralTextButton(
-                    text = stringResource(R.string.btn_back_to_edit),
-                    onClick = onDismissError,
-                )
-                val isPermissionError =
-                    state.errorCode == DictationErrorCode.MIC_PERMISSION_DENIED ||
-                        state.errorCode == DictationErrorCode.MIC_PERMISSION_REVOKED
-                if (isPermissionError) {
+                if (!state.errorCode.isModelError()) {
+                    NeutralTextButton(
+                        text = stringResource(R.string.btn_back_to_edit),
+                        onClick = onDismissError,
+                    )
+                }
+                if (state.errorCode.isMicPermissionError()) {
                     PrimaryButton(
                         text = stringResource(R.string.btn_open_settings),
                         icon = null,
@@ -572,16 +609,9 @@ internal fun ActionRow(
                         onClick = onOpenSettings,
                         modifier = Modifier.weight(1f),
                     )
-                } else {
-                    val retryLabel = when (state.errorCode) {
-                        DictationErrorCode.MODEL_NOT_FOUND,
-                        DictationErrorCode.MODEL_CORRUPTED,
-                        DictationErrorCode.MODEL_LOAD_FAILED,
-                        -> stringResource(R.string.btn_retry)
-                        else -> stringResource(R.string.btn_start)
-                    }
+                } else if (state.errorCode.isModelError() || state.errorCode.canRetrySession()) {
                     PrimaryButton(
-                        text = retryLabel,
+                        text = stringResource(R.string.btn_retry),
                         icon = SonletIcons.Mic,
                         enabled = true,
                         onClick = if (state.errorCode.isModelError()) onRetryModel else onStart,

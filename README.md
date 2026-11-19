@@ -29,7 +29,7 @@ app/src/main/java/com/sonlet/app/
 ## 环境要求
 
 - Android Studio(含 JDK 21 JBR;`gradle.properties` 已指定 `org.gradle.java.home`)
-- Android SDK Platform 35
+- Android SDK Platform 37、Build Tools 36.0.0 和 Python 3
 - arm64-v8a 真机(API 26+);模拟器仅可验证构建,JNI 冒烟需真机
 
 ## 模型与依赖
@@ -63,13 +63,17 @@ scripts/fetch_model.sh
 
 ## 发布
 
-打一个 `v` 开头的 tag 即触发 `.github/workflows/release.yml`:CI 拉取并校验模型资产、构建签名 APK、检查 APK 内确实含 `assets/sensevoice/model.int8.onnx`,再上传到 GitHub Release。
+手动运行 Actions 的 `Release` 工作流可验证签名构建。受限候选包在本地生成并通过受控渠道交付。工作流输出校验结果和 SHA-256。
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
+./gradlew testDebugUnitTest lintDebug lintRelease assembleRelease \
+  -PsonletVersionName=0.1.1 -PsonletVersionCode=101
+python3 scripts/verify_release_apk.py v0.1.1 \
+  --apk app/build/outputs/apk/release/app-release.apk \
+  --build-tools "${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools/36.0.0"
 ```
 
-tag 必须形如 `v1.2.3`,版本号(versionName)取自理名部分,versionCode 按 `major*10000 + minor*100 + patch` 计算。想先演练不发版,可在 Actions 里手动运行 `Release`,默认 `dry_run` 只产出 artifact。
+版本号采用 `vMAJOR.MINOR.PATCH`，次版本和修订号范围为 0～99。versionCode 按 `major*10000 + minor*100 + patch` 计算，须高于已发布版本。先合并工作流修复并核对正式 tag 指向的候选提交。历史提交的工作流仍可能在推送 tag 时自动发布。公开发行前，按[发布准备计划](docs/release_readiness_plan.md)记录精确 APK 哈希、设备验收和分发批准。由负责人确认后，在 GitHub Release 上传已经验收的同一份 APK。
 
 模型归档约 460MB,按 SHA 缓存,首次发布之后的重跑不会重复下载。
 
@@ -92,7 +96,7 @@ keyPassword=你的口令
 
 没有可用密钥时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
 
-`release.jks` 必须备份:丢失后无法为已上架的应用签名升级。缺省签名走手动触发的 `release` job(Actions → CI → Run workflow),需要四个仓库 secret:
+`release.jks` 必须备份，升级包沿用已发布证书。CI 验证使用 Actions → Release → Run workflow，需要四个仓库 secret：
 
 | secret | 内容 |
 |---|---|
@@ -101,7 +105,7 @@ keyPassword=你的口令
 | `RELEASE_KEY_ALIAS` | 密钥别名 |
 | `RELEASE_KEY_PASSWORD` | 密钥口令 |
 
-job 在构建后用 `apksigner verify` 校验签名,APK 作为 artifact 上传。
+工作流使用 `scripts/verify_release_apk.py` 校验版本、签名、模型、NOTICE、原生库和离线权限。
 
 ## 已知限制(P0/P1,如实记录;T4-05 已签署 Conditional Go,2026-11-04)
 

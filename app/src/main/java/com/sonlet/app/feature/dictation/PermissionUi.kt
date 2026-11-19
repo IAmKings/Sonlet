@@ -17,7 +17,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,12 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.sonlet.app.R
 
 /**
@@ -62,8 +58,15 @@ class MicPermissionState(private val context: Context) {
     var permanentlyDenied by mutableStateOf(false)
         private set
 
-    /** 授权成功后自动开始录音的意图(点击开始 → 授权 → 直接开录) */
-    var pendingStart by mutableStateOf(false)
+    /** 点击模式可在授权后开始。按住模式需要重新按住。 */
+    internal var startAfterGrant = false
+
+    internal fun onPermissionResult(granted: Boolean, showRationale: Boolean): Boolean {
+        val shouldStart = granted && startAfterGrant
+        startAfterGrant = false
+        if (granted) onGranted() else onDenied(showRationale)
+        return shouldStart
+    }
 
     fun onGranted() {
         granted = true
@@ -95,18 +98,7 @@ class MicPermissionState(private val context: Context) {
 @Composable
 fun rememberMicPermissionState(): MicPermissionState {
     val context = LocalContext.current
-    val state = remember { MicPermissionState(context) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                state.refresh()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    return state
+    return remember(context) { MicPermissionState(context) }
 }
 
 /** 请求授权:由 Screen 持有 launcher,结果回灌状态 */

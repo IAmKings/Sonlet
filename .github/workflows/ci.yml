@@ -38,7 +38,9 @@ jobs:
         run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
 
       - name: 单元测试
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: |
+          ./gradlew testDebugUnitTest lintDebug lintRelease --stacktrace
+          python3 -m unittest discover -s tests -v
 
       - name: 构建 Debug APK
         run: ./gradlew assembleDebug --stacktrace

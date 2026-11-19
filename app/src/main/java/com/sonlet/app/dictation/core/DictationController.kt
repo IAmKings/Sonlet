@@ -130,9 +130,15 @@ class DictationController(
     }
 
     private fun handle(command: DictationCommand) {
-        val phase = _state.value.phase
+        val state = _state.value
+        val phase = state.phase
         when (command) {
-            DictationCommand.Start -> if (phase == DictationPhase.READY) startSession()
+            DictationCommand.Start -> if (
+                engine.isReady &&
+                (phase == DictationPhase.READY || phase == DictationPhase.ERROR && state.errorCode.canRetrySession())
+            ) {
+                startSession()
+            }
             DictationCommand.Finish -> when (phase) {
                 DictationPhase.RECORDING -> finishSignal?.complete(Unit)
                 // P1 按住说话:启动未完成时松开 → 启动成功后立即结束(CCID CC-02)
@@ -147,12 +153,13 @@ class DictationController(
             }
             DictationCommand.RetryModel -> if (
                 phase == DictationPhase.PREPARING ||
-                (phase == DictationPhase.ERROR && _state.value.errorCode.isModelError())
+                (phase == DictationPhase.ERROR && state.errorCode.isModelError())
             ) {
                 prepareModel()
             }
-            DictationCommand.DismissError -> if (phase == DictationPhase.ERROR) {
-                // 仅收起错误说明;资源/模型状态不变(DESIGN.md §6)
+            DictationCommand.DismissError -> if (
+                phase == DictationPhase.ERROR && !state.errorCode.isModelError() && engine.isReady
+            ) {
                 _state.update { it.copy(phase = DictationPhase.READY, errorCode = null) }
             }
         }
@@ -300,7 +307,7 @@ class DictationController(
             ?.filter { it.isNotEmpty() }
             ?: listOf(samples)
         if (segments.isEmpty()) {
-            _events.tryEmit(DictationEvent.TranscriptEmpty)
+            _events.tryEmit(DictationEvent.TranscriptEmpty())
             return
         }
         // 逐段转写;任一交付点被取消(会话失效)则中止,不再消耗推理
@@ -315,13 +322,20 @@ class DictationController(
         val processed = processor.process(joined, styleProvider())
         if (processed.formatted.isEmpty()) {
             // 空结果:不改编辑框(AC-P0-013)
-            _events.tryEmit(DictationEvent.TranscriptEmpty)
+            if (guard.canDeliver(sessionId)) {
+                _events.tryEmit(DictationEvent.TranscriptEmpty(processed.raw.takeUnless(String::isBlank)))
+            }
             return
         }
         // 结果交付唯一:代际 + resultId 双重校验(不变量 2/3,CC-03/CC-10)
         if (guard.canDeliver(sessionId) && guard.markDelivered(sessionId, lastResultId)) {
             _events.tryEmit(
-                DictationEvent.TranscriptReady(sessionId, lastResultId, processed.formatted),
+                DictationEvent.TranscriptReady(
+                    sessionId,
+                    lastResultId,
+                    processed.formatted,
+                    processed.raw.takeIf { it != processed.formatted },
+                ),
             )
         }
     }

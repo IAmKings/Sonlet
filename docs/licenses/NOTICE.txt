@@ -1,0 +1,21 @@
+Sonlet bundles the following third-party models and native libraries.
+
+sherpa-onnx v2.0.1 (Kotlin API and Android JNI)
+License text: sherpa-onnx-LICENSE
+Source: https://github.com/k2-fsa/sherpa-onnx/tree/v2.0.1
+
+ONNX Runtime (native library distributed with sherpa-onnx v2.0.1)
+License text: onnxruntime-LICENSE
+Source: https://github.com/microsoft/onnxruntime
+
+SenseVoice Small INT8 and vocabulary (2024-07-17 artifact)
+Archived upstream license text: funasr-LICENSE
+Source: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
+
+Silero VAD v4
+License text: silero-vad-LICENSE
+Source: https://github.com/snakers4/silero-vad
+
+AndroidX Graphics Path 1.0.1 (native library packaged by AndroidX)
+License: Apache License 2.0
+Source: https://android.googlesource.com/platform/frameworks/support/+/androidx-main/graphics/graphics-path/

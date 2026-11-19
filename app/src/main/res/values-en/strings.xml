@@ -59,5 +59,8 @@
     <string name="style_natural">Natural</string>
     <string name="style_concise">Concise</string>
     <string name="style_notes">Notes</string>
+    <string name="btn_view_original">View original transcript</string>
+    <string name="msg_filtered">This style produced no text. You can view the original transcript.</string>
+    <string name="original_transcript_title">Latest original transcript</string>
     <string name="a11y_waveform">Live recording level</string>
 </resources>

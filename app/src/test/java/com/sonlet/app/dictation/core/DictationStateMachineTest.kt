@@ -292,16 +292,18 @@ class DictationStateMachineTest {
 
     @Test
     fun `model error state rejects start until retry`() = runTest {
-        val (controller, engine, _) = newController(
+        val (controller, engine, capture) = newController(
             modelVerification = {
                 ModelVerificationResult.Failed(DictationErrorCode.MODEL_NOT_FOUND)
             },
         )
         awaitPhase(controller, DictationPhase.ERROR)
-        controller.dispatch(DictationCommand.Start) // 非法:未就绪
+        controller.dispatch(DictationCommand.DismissError)
+        controller.dispatch(DictationCommand.Start)
         pump(1_000)
         assertEquals(DictationPhase.ERROR, controller.state.value.phase)
         assertEquals(0, engine.prepareCount.get())
+        assertEquals(0, capture.startedCount)
     }
 
     // ---- AC-P0-017:推理异常 ----
@@ -322,11 +324,7 @@ class DictationStateMachineTest {
         pump(1_000)
         awaitPhase(controller, DictationPhase.ERROR)
         assertEquals(DictationErrorCode.ASR_DECODE_FAILED, controller.state.value.errorCode)
-        // 错误后可返回编辑并重新开始
-        controller.dispatch(DictationCommand.DismissError)
-        pump(0)
-        awaitPhase(controller, DictationPhase.READY)
-        // 恢复正常后可再次录音
+        // 错误页主操作直接重试。
         engine.transcribeError = null
         controller.dispatch(DictationCommand.Start)
         awaitPhase(controller, DictationPhase.RECORDING)
@@ -525,6 +523,26 @@ class DictationStateMachineTest {
         awaitPhase(controller, DictationPhase.READY)
         assertEquals(1, readyEvents.size)
         assertEquals("这个 方案", readyEvents[0].text)
+        assertEquals("嗯 这个 这个 方案", readyEvents[0].original)
+        collector.cancel()
+    }
+
+    @Test
+    fun `filtering all text leaves editor unchanged and exposes original`() = runTest {
+        val (controller, _, capture) = newController(
+            engine = FakeAsrEngine().apply { transcribeText = "嗯" },
+            styleProvider = { DictationStyle.CONCISE },
+        )
+        val events = mutableListOf<DictationEvent>()
+        val collector = launch { controller.events.collect { events.add(it) } }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        awaitPhase(controller, DictationPhase.READY)
+        pump()
+        assertEquals(listOf(DictationEvent.TranscriptEmpty("嗯")), events)
         collector.cancel()
     }
 
