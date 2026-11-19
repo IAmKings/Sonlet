@@ -6,6 +6,8 @@ import android.media.AudioManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -170,9 +174,21 @@ fun DictationScreen(viewModel: DictationViewModel) {
             Modifier.fillMaxWidth()
         }
 
+        // 200% 字体下固定区块会撑破一屏,整页可滚动;导航栏内边距放在滚动容器外,
+        // 否则内容滚到底部时会盖住手势条
+        val scrollState = rememberScrollState()
+        // 编辑面按"一屏减去固定区块"给高度:固定区块(页头/风格/控制面/模式行)在默认字号下
+        // 约 470dp,超出部分由滚动兜底,不再用 weight(滚动容器的测量高度是无限的)
+        // 横屏只有 ~356dp 高,固定下限 200dp 会把控制面整个顶出屏幕,短屏时收到 96dp
+        val editorMinHeight = if (maxHeight < 600.dp) 96.dp else 200.dp
+        val editorHeight = (maxHeight - 470.dp).coerceAtLeast(editorMinHeight)
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(scrollState)
                 .padding(horizontal = horizontalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -186,7 +202,7 @@ fun DictationScreen(viewModel: DictationViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .height(editorHeight),
                 )
                 if (permission.deniedOnce && !permission.granted) {
                     Spacer(Modifier.height(4.dp))
@@ -239,7 +255,7 @@ private fun Header() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp, bottom = 16.dp),
+            .padding(top = 8.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
