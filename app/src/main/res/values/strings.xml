@@ -5,7 +5,7 @@
     <string name="header_subtitle">本地转写</string>
 
     <!-- 编辑器(DESIGN.md §5:占位提示) -->
-    <string name="editor_placeholder">写点什么,或使用语音输入。</string>
+    <string name="editor_placeholder">写点什么，或使用语音输入。</string>
 
     <!-- 状态文案(DESIGN.md §6 状态表) -->
     <string name="status_preparing">正在准备离线语音模型</string>
@@ -63,6 +63,7 @@
     <string name="btn_release_to_transcribe">松开转写</string>
     <string name="mode_toggle_tap">点击模式</string>
     <string name="mode_toggle_hold">按住模式</string>
+    <string name="style_section_label">输出风格</string>
     <string name="style_verbatim">原文</string>
     <string name="style_natural">自然</string>
     <string name="style_concise">精简</string>

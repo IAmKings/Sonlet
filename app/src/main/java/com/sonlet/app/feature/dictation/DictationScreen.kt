@@ -27,6 +27,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -320,15 +323,17 @@ private fun ControlPanel(
     onDismissError: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // DESIGN.md §4:平面表面 + 1dp 边界;不用 tonalElevation —— M3 会拿 primary
+    // 当地面色叠加,把控制面染成品牌色,抢走主按钮的强调。
     Surface(
         modifier = modifier.padding(vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             StatusRow(state, limitMs)
             if (state.phase == DictationPhase.RECORDING) {
@@ -403,13 +408,19 @@ private fun StatusRow(state: DictationUiState, limitMs: Long) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
         }
+        // READY 时状态行是"背景说明",不该和主按钮的"开始语音输入"等重;
+        // 降一档字号与颜色,把视觉重心让给按钮(DESIGN.md §7 文字在前、动作在后)。
         Text(
             text = statusText(state),
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (state.phase == DictationPhase.ERROR) {
-                MaterialTheme.colorScheme.error
+            style = if (state.phase == DictationPhase.READY) {
+                MaterialTheme.typography.bodyMedium
             } else {
-                MaterialTheme.colorScheme.onSurface
+                MaterialTheme.typography.bodyLarge
+            },
+            color = when (state.phase) {
+                DictationPhase.ERROR -> MaterialTheme.colorScheme.error
+                DictationPhase.READY -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MaterialTheme.colorScheme.onSurface
             },
             modifier = Modifier
                 .weight(1f)
@@ -649,26 +660,39 @@ private fun ModeToggleRow(
     val toggleVisible = state.phase == DictationPhase.READY ||
         state.phase == DictationPhase.RECORDING
     if (!toggleVisible) return
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        TextButton(
+    // 用 selected 表达"当前选中的是哪个",而不是拿 enabled 冒充选中:
+    // 旧写法把当前模式画成禁用灰、另一项画成品牌橙,读起来恰好相反。
+    val segColors = SegmentedButtonDefaults.colors(
+        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        activeBorderColor = MaterialTheme.colorScheme.primary,
+        inactiveContainerColor = MaterialTheme.colorScheme.surface,
+        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        SegmentedButton(
+            selected = !holdMode,
             onClick = { onHoldModeChange(false) },
-            enabled = holdMode,
+            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+            colors = segColors,
+            icon = {},
         ) {
             Text(
                 stringResource(R.string.mode_toggle_tap),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelLarge,
             )
         }
-        TextButton(
+        SegmentedButton(
+            selected = holdMode,
             onClick = { onHoldModeChange(true) },
-            enabled = !holdMode,
+            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+            colors = segColors,
+            icon = {},
         ) {
             Text(
                 stringResource(R.string.mode_toggle_hold),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelLarge,
             )
         }
     }
