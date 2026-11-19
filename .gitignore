@@ -39,5 +39,7 @@ __pycache__/
 /docs/brand/*.zip
 
 # Trellis 工作流与会话代理的运行产物(本地工具目录,不入库)
-/.trellis/
+# 只忽略 .trellis 下的运行产物;研发日志由下面的反向例外纳入版本管理。
+/.trellis/*
+!/.trellis/journal/
 /.agents/
