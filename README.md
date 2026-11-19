@@ -63,19 +63,26 @@ scripts/fetch_model.sh
 
 ## 发布
 
-手动运行 Actions 的 `Release` 工作流可验证签名构建。受限候选包在本地生成并通过受控渠道交付。工作流输出校验结果和 SHA-256。
+推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml` 会自动构建并发布到 GitHub Release：
 
 ```sh
-./gradlew testDebugUnitTest lintDebug lintRelease assembleRelease \
-  -PsonletVersionName=0.1.1 -PsonletVersionCode=101
-python3 scripts/verify_release_apk.py v0.1.1 \
-  --apk app/build/outputs/apk/release/app-release.apk \
-  --build-tools "${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools/36.0.0"
+git tag -a v0.1.2 -m "v0.1.2"
+git push origin v0.1.2
 ```
 
-版本号采用 `vMAJOR.MINOR.PATCH`，次版本和修订号范围为 0～99。versionCode 按 `major*10000 + minor*100 + patch` 计算，须高于已发布版本。先合并工作流修复并核对正式 tag 指向的候选提交。历史提交的工作流仍可能在推送 tag 时自动发布。公开发行前，按[发布准备计划](docs/release_readiness_plan.md)记录精确 APK 哈希、设备验收和分发批准。由负责人确认后，在 GitHub Release 上传已经验收的同一份 APK。
+工作流依次：解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 创建 Release 并上传 `Sonlet-<版本>-arm64-v8a.apk`。同名 Release 已存在时改为覆盖上传，重跑同一个 tag 不会失败。
 
-模型归档约 460MB,按 SHA 缓存,首次发布之后的重跑不会重复下载。
+版本号只从 tag 取：versionCode 按 `major*10000 + minor*100 + patch` 计算，次版本与修订号限 0～99，且必须大于已发布版本。`app/build.gradle.kts` 里的默认值只影响本地构建，CI 由 tag 注入。
+
+只想演练、不发布：
+
+```sh
+gh workflow run Release --ref main -f tag=v0.1.1 -f dry_run=true
+```
+
+`dry_run` 默认 true，跑完构建与校验后跳过发布步骤。模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。
+
+公开发行前，按[发布准备计划](docs/release_readiness_plan.md)与[发布门检查清单](docs/release_checklist.md)记录设备验收、APK 哈希与分发批准。
 
 ## Release 签名
 
@@ -96,7 +103,7 @@ keyPassword=你的口令
 
 没有可用密钥时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
 
-`release.jks` 必须备份，升级包沿用已发布证书。CI 验证使用 Actions → Release → Run workflow，需要四个仓库 secret：
+`release.jks` 必须备份，升级包沿用已发布证书。CI 运行需要四个仓库 secret（Settings → Secrets and variables → Actions）：
 
 | secret | 内容 |
 |---|---|
