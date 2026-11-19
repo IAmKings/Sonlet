@@ -1,35 +1,48 @@
 name: Release
 
-# 公开仓库的工作流只验证签名候选包。公开发布由负责人按候选包验收记录另行操作。
+# 推 v* tag 时自动构建签名包并发布 GitHub Release;
+# workflow_dispatch 用于演练:默认只构建校验,不创建 Release。
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
-      candidate_tag:
-        description: 候选版本（如 v0.1.1）
+      tag:
+        description: 演练使用的版本标签（如 v0.1.2），需与推送代码内容一致
         type: string
         required: true
+      dry_run:
+        description: 只构建与校验，不创建 Release
+        type: boolean
+        default: true
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release:
-    name: 验证签名候选 APK
+    name: 构建并发布签名 APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: 校验候选版本
+      # 版本号只认 tag:versionName 去 v,versionCode 为 major*10000+minor*100+patch
+      - name: 解析版本
         id: version
         env:
-          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          VERSION_CODE=$(python3 scripts/verify_release_apk.py "$CANDIDATE_TAG")
-          echo "tag=$CANDIDATE_TAG" >> "$GITHUB_OUTPUT"
+          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if ! VERSION_CODE=$(python3 scripts/verify_release_apk.py "$TAG"); then
+            echo "::error::版本标签不合法:$TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
@@ -85,19 +98,51 @@ jobs:
 
       - name: 构建 Release
         env:
-          CANDIDATE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           ./gradlew testDebugUnitTest lintRelease assembleRelease --console=plain \
-            -PsonletVersionName="${CANDIDATE_TAG#v}" -PsonletVersionCode="$VERSION_CODE"
+            -PsonletVersionName="$VERSION" -PsonletVersionCode="$VERSION_CODE"
 
-      - name: 校验候选 APK
+      - name: 校验 APK
         env:
-          CANDIDATE_TAG: ${{ steps.version.outputs.tag }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          python3 scripts/verify_release_apk.py "$CANDIDATE_TAG" \
+          python3 scripts/verify_release_apk.py "$TAG" \
             --apk app/build/outputs/apk/release/app-release.apk \
             --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+
+      - name: 打印签名信息
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: 发布 Release
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ASSET="$RUNNER_TEMP/Sonlet-$VERSION-arm64-v8a.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$ASSET"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # 同名 tag 已存在 Release:补传或覆盖资产,不再重复创建
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "Sonlet $VERSION" \
+              --generate-notes \
+              --verify-tag
+          fi
+
+      - name: 汇总
+        if: always()
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          echo "### $TAG" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh app/build/outputs/apk/release/app-release.apk >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
 
       - name: 清理签名参数
         if: always()
