@@ -10,7 +10,9 @@ package com.sonlet.app.dictation.core
  * - 选区替换:选区被替换,光标落在替换文本之后(AC-P0-012)。
  * - 代理对/组合字符边界:选区端点落在代理对中间时回退到字符边界。
  * - 邻接空格:仅在"字母数字 ↔ 字母数字"或"汉字 ↔ 字母数字"邻接时补一个空格;
- *   已有空格、CJK 标点、其他标点不补(§12.1)。
+ *   已有空格、CJK 标点不补(§12.1)。
+ * - 句界空格:前文以英文句末标点(.!?)结尾、后文以文字字符开头时补空格,
+ *   小数/版本号(前一个字符是数字且后文以数字开头)例外;中文句末标点后接拉丁才补。
  * - 空文本:原样返回,不产生任何修改(AC-P0-013)。
  */
 object TextInsertionPolicy {
@@ -71,19 +73,35 @@ object TextInsertionPolicy {
      */
     private fun needsSpaceBefore(prefix: String, transcript: String): Boolean {
         if (prefix.isEmpty()) return false
-        val prev = prefix.last()
-        if (prev.isWhitespace()) return false
-        return needsSpaceBetween(prev, transcript.first())
+        if (prefix.last().isWhitespace()) return false
+        return spacingBetween(prefix.last(), transcript.first()) || sentenceGap(prefix, transcript)
     }
 
     private fun needsSpaceAfter(transcript: String, suffix: String): Boolean {
         if (suffix.isEmpty()) return false
-        val next = suffix.first()
-        if (next.isWhitespace()) return false
-        return needsSpaceBetween(transcript.last(), next)
+        if (suffix.first().isWhitespace()) return false
+        return spacingBetween(transcript.last(), suffix.first()) || sentenceGap(transcript, suffix)
     }
 
-    private fun needsSpaceBetween(prev: Char, next: Char): Boolean = spacingBetween(prev, next)
+    /**
+     * 句界是否需要空格(仅看 [before] 末字符与 [after] 首字符):
+     * - 英文句末标点 `.!?`:后接文字字符时补空格;`3.` + `5` 这类小数/版本号不补
+     * - 中文句末标点 `。！？`:只在后接拉丁字母或数字时补空格
+     */
+    private fun sentenceGap(before: String, after: String): Boolean {
+        val prev = before.last()
+        val next = after.first()
+        return when (prev) {
+            '.', '!', '?' -> {
+                val decimal = prev == '.' &&
+                    before.getOrNull(before.length - 2)?.isDigit() == true &&
+                    next.isDigit()
+                !decimal && (next.isLatinLetterOrDigit() || next.isHanIdeograph())
+            }
+            '。', '！', '？' -> next.isLatinLetterOrDigit()
+            else -> false
+        }
+    }
 
     /**
      * 两字符邻接处是否需要一个空格(P1 分段拼接与插入共用):
@@ -105,7 +123,7 @@ object TextInsertionPolicy {
     fun joinTranscripts(a: String, b: String): String {
         if (a.isEmpty()) return b
         if (b.isEmpty()) return a
-        val space = spacingBetween(a.last(), b.first())
+        val space = spacingBetween(a.last(), b.first()) || sentenceGap(a, b)
         return if (space) "$a $b" else a + b
     }
 

@@ -169,6 +169,30 @@ class TextInsertionPolicyTest {
     }
 
     @Test
+    fun `english sentence boundary gets a space`() {
+        assertEquals("Hello. World", TextInsertionPolicy.joinTranscripts("Hello.", "World"))
+        assertEquals("真的吗? 是的", TextInsertionPolicy.joinTranscripts("真的吗?", "是的"))
+    }
+
+    @Test
+    fun `decimal and version numbers are not split`() {
+        assertEquals("3.5", TextInsertionPolicy.joinTranscripts("3.", "5"))
+        assertEquals("版本 1.2", TextInsertionPolicy.joinTranscripts("版本 1.", "2"))
+    }
+
+    @Test
+    fun `chinese sentence punctuation only gaps before latin`() {
+        assertEquals("你好。世界", TextInsertionPolicy.joinTranscripts("你好。", "世界"))
+        assertEquals("你好。 World", TextInsertionPolicy.joinTranscripts("你好。", "World"))
+    }
+
+    @Test
+    fun `insert after sentence boundary adds space`() {
+        assertEquals("Hello. World", TextInsertionPolicy.insert(tf("Hello.", 6), "World").text)
+        assertEquals("3.5", TextInsertionPolicy.insert(tf("3.", 2), "5").text)
+    }
+
+    @Test
     fun `joinTranscripts passes through empty sides`() {
         assertEquals("只有一段", TextInsertionPolicy.joinTranscripts("", "只有一段"))
         assertEquals("只有一段", TextInsertionPolicy.joinTranscripts("只有一段", ""))
