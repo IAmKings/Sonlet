@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   build:
+    name: 构建与单元测试
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
