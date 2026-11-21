@@ -233,7 +233,7 @@ class PcmAudioRecorder(
     private suspend fun readLoop(sessionId: Long, record: AudioRecord) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val chunk = ShortArray(CHUNK_SAMPLES)
-        val startedAtMs = SystemClock.elapsedRealtime()
+        var lastProgressAtMs = SystemClock.elapsedRealtime()
         try {
             while (!stopRequested) {
                 val n = record.read(chunk, 0, chunk.size)
@@ -246,19 +246,21 @@ class PcmAudioRecorder(
                 }
                 if (n == 0) continue
                 appendPcm(chunk, n)
+                lastProgressAtMs = SystemClock.elapsedRealtime()
                 if (sampleCount >= capacitySamples(options)) {
                     durationCapped = true
                     Log.i(TAG, "capture_duration_capped sessionId=$sessionId")
                     break
                 }
-                // 兜底截止:设备长时间零读时样本量不增长,必须靠墙钟退出,否则 AudioRecord 不会释放
-                val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
-                if (elapsedMs >= options.maxDurationMs) {
+                // 兜底截止:设备长时间不给帧时样本量不增长,必须退出,否则 AudioRecord 不会释放。
+                // 只判"多久没有新样本",不判总墙钟——仍在到达的音频不该被截断。
+                val stalledMs = SystemClock.elapsedRealtime() - lastProgressAtMs
+                if (stalledMs >= options.maxDurationMs) {
                     // 一帧都没收到就不算"录到上限",按误触避免交付空音频
                     durationCapped = sampleCount > 0
                     Log.i(
                         TAG,
-                        "capture_deadline_reached sessionId=$sessionId elapsedMs=$elapsedMs " +
+                        "capture_stalled sessionId=$sessionId stalledMs=$stalledMs " +
                             "samples=$sampleCount capped=$durationCapped",
                     )
                     break

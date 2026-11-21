@@ -248,13 +248,21 @@ class DictationController(
                 pendingFinish = false
                 finish.complete(Unit)
             }
-            val recordingStartedAtMs = nowMs()
+            var lastDuration = -1L
+            var lastProgressAtMs = nowMs()
             val ticker = scope.launch {
                 while (true) {
                     delay(DURATION_TICK_MS)
                     val duration = capture.currentDurationMs.coerceAtMost(captureOptions.maxDurationMs)
-                    // 截止按墙钟推进:零读(设备不给帧)时样本量不增长,只看样本会永不结束
-                    if (nowMs() - recordingStartedAtMs >= captureOptions.maxDurationMs) {
+                    val now = nowMs()
+                    if (duration > lastDuration) {
+                        lastDuration = duration
+                        lastProgressAtMs = now
+                    }
+                    // 到时即收尾;另外设备零读时时长不前进,只看时长会永不结束,故加"停滞"判定
+                    if (duration >= captureOptions.maxDurationMs ||
+                        now - lastProgressAtMs >= captureOptions.maxDurationMs
+                    ) {
                         finish.complete(Unit)
                     }
                     val level = capture.currentLevel
