@@ -43,6 +43,8 @@ class DictationStateMachineTest {
             scope = backgroundScope,
             styleProvider = styleProvider,
             speechSegmenter = speechSegmenter,
+            // 虚拟时间即墙钟:让截止逻辑在 runTest 里可推进
+            nowMs = { testScheduler.currentTime },
         )
         controller.start()
         return Triple(controller, engine, capture)
@@ -531,6 +533,55 @@ class DictationStateMachineTest {
         awaitPhase(controller, DictationPhase.READY)
         pump()
         assertEquals(listOf(DictationEvent.TranscriptEmpty("嗯")), events)
+        collector.cancel()
+    }
+
+    // ---- 质量整改 T3:截止走单调时钟 / 转写中路由变化不丢结果 ----
+
+    @Test
+    fun `recording stops at the deadline even when no samples arrive`() = runTest {
+        val (controller, _, capture) = newController()
+        val events = mutableListOf<DictationEvent>()
+        val collector = launch { controller.events.collect { events.add(it) } }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+
+        // 设备零读:样本量不增长,按样本算的时长永远停在 0
+        capture.currentDurationMsOverride = 0L
+        pump(31_000)
+
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals(1, capture.stoppedCount)
+        assertTrue(events.contains(DictationEvent.TooShort))
+        assertTrue(events.none { it is DictationEvent.TranscriptReady })
+        collector.cancel()
+    }
+
+    @Test
+    fun `route change during transcription still delivers the text`() = runTest {
+        val (controller, _, capture) = newController(
+            engine = FakeAsrEngine().apply {
+                transcribeText = "内容"
+                transcribeDelayMs = 5_000
+            },
+        )
+        val ready = mutableListOf<DictationEvent.TranscriptReady>()
+        val collector = launch { controller.results.collect { ready.add(it) } }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        awaitPhase(controller, DictationPhase.TRANSCRIBING)
+
+        // 音频已经采完,此时拔掉耳机不该把结果吞掉
+        controller.dispatch(DictationCommand.AudioRouteInterrupted)
+        pump(6_000)
+
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals(1, ready.size)
+        assertEquals("内容", ready[0].text)
         collector.cancel()
     }
 

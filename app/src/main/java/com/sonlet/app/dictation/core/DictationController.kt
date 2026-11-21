@@ -58,6 +58,11 @@ class DictationController(
     private val speechSegmenter: SpeechSegmenter? = null,
     /** 会话异常诊断出口;core 保持 android-free(PRD §7.3),宿主接 Log/SBOM 白名单 */
     private val errorLogger: (Throwable) -> Unit = {},
+    /**
+     * 单调时钟(毫秒),注入以便单测推进虚拟时间。
+     * 录音截止必须用它:按已采集样本量计算时,设备零读会让时长永远停在 0,录制永不自动结束。
+     */
+    private val nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
 
     private val commands = Channel<DictationCommand>(Channel.UNLIMITED)
@@ -159,9 +164,13 @@ class DictationController(
             }
             DictationCommand.Cancel -> if (phase in CANCELLABLE_PHASES) cancelActive()
             DictationCommand.AppBackgrounded -> if (phase in CANCELLABLE_PHASES) cancelActive()
-            DictationCommand.AudioRouteInterrupted -> if (phase in CANCELLABLE_PHASES) {
-                cancelActive()
-                _events.tryEmit(DictationEvent.RouteChanged)
+            // 音频已采集完时路由变化不影响结果:继续转写(AC-P0-015 只管"录制中不自动回填")
+            DictationCommand.AudioRouteInterrupted -> when (phase) {
+                DictationPhase.STARTING, DictationPhase.RECORDING -> {
+                    cancelActive()
+                    _events.tryEmit(DictationEvent.RouteChanged)
+                }
+                else -> Unit
             }
             DictationCommand.RetryModel -> if (
                 phase == DictationPhase.PREPARING ||
@@ -239,11 +248,15 @@ class DictationController(
                 pendingFinish = false
                 finish.complete(Unit)
             }
+            val recordingStartedAtMs = nowMs()
             val ticker = scope.launch {
                 while (true) {
                     delay(DURATION_TICK_MS)
-                    val duration = capture.currentDurationMs
-                    if (duration >= captureOptions.maxDurationMs) finish.complete(Unit)
+                    val duration = capture.currentDurationMs.coerceAtMost(captureOptions.maxDurationMs)
+                    // 截止按墙钟推进:零读(设备不给帧)时样本量不增长,只看样本会永不结束
+                    if (nowMs() - recordingStartedAtMs >= captureOptions.maxDurationMs) {
+                        finish.complete(Unit)
+                    }
                     val level = capture.currentLevel
                     _state.update { state ->
                         if (state.sessionId == sessionId) {
