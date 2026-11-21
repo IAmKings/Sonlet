@@ -1,8 +1,27 @@
 # Sonlet 代码质量整改计划
 
-**状态**　规划草案，2026-11-21。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.2](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.2)。
+**状态**　执行中，2026-11-22：第 1、2 节完成；第 3 节完成；第 4 节未开始。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.3](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.3)。
 
 本轮目标是恢复可核验的发布流程，解决听写结果丢失和录音停不下来的问题，并补齐正文隐私与界面验收。既有性能目标、待验证项和受限内测批准沿用 [PRD](Hex_Android_Offline_ASR_PRD_v1.0.md)、[发布决策](release_decision.md)与[发布检查清单](release_checklist.md)。[上次候选包记录](release_readiness_plan.md)仅对应其中记录的文件摘要。
+
+## 完成情况（2026-11-22）
+
+| 节 | 工作 | 状态 | 落地 |
+|---|---|---|---|
+| 1 | 挡住未批准的公开发布 | 完成 | `719bf10`（PR #29）：候选构建只产出 artifact，`publish.yml` 需 `environment: release` 人工批准 + `approved_by` + 精确 SHA-256，且校验 run 的 headSha 与 tag 指向同一提交；v0.1.3 实跑（Publish run 44879687970） |
+| 1 | 保护已发布附件 | 完成 | 同上：同名 Release 先比附件摘要，一致即成功、不一致即失败，不再覆盖上传 |
+| 1 | 新版本必须高于已公开版本 | 完成 | 同上：`--published-version-code` + `--list-published`，`tests/test_release_apk.py` 覆盖低于 / 等于 / 高于三种情况 |
+| 2 | 解耦结果与提示交付 | 完成 | `f09ef3b`（PR #30）：结果走 `Channel(UNLIMITED)`，消费者确认后才计入；`ResultDeliveryTest` 在提示停滞下 100 次转写全部恰好插入一次 |
+| 2 | 落实 30 秒录音截止 | 部分 | `372ad52` + `f5c139f`：截止改用单调时钟，读循环与状态机都按"连续 30 秒没有新样本"判定。**未做**：`DISPOSE_TIMEOUT_MS` 超预算时界面给错误——实际实现是 `withTimeoutOrNull` 静默放行（超时后 scope 已取消、麦克风已释放，没有可恢复动作），设计与实现不一致，待定改文档还是改代码 |
+| 2 | 录完后的路由变化保留转写 | 完成 | `372ad52`：路由失效只在 STARTING/RECORDING 中止，TRANSCRIBING 不取消 |
+| 3 | 明确草稿生命周期 | 完成 | `e456e0b`：正文不进 saved state；`7798997`：改为应用私有存储 + 防抖落盘，杀进程可恢复。隐私约定已同步（PRD §14）与验收条目（`acceptance_guide.md` 2.4–2.6），见本次提交 |
+| 3 | 修正英文分段句界 | 完成 | `c13f782`（PR #33）：`Hello.` + `World` → `Hello. World`，中文全角、小数与标识符一并覆盖 |
+| 3 | 补齐无障碍和键盘反馈 | 完成 | `c13f782`：分段选中态加勾选标记、按住模式补 TalkBack 等同动作、Snackbar 避让导航栏与软键盘；本次提交补外接键盘回车/空格切换 + 仪器用例 |
+| 4-1 | 单测 / Python / 双变体 Lint / actionlint / 签名构建 | 完成 | `ci.yml` 跑 `lintDebug lintRelease` 与 `actionlint`；签名构建在 Release Candidate 工作流内 |
+| 4-2 | 真机验收 | 部分 | 升级路径（`ba02dc3` 记录 0.1.2→0.1.3 实测）、真实录音、安装启动有证据；缺断网冷启动、取消/切后台/权限恢复成组记录、目标机型矩阵 |
+| 4-3 | CER/WER 与 P95 延迟 | 未开始 | `app/src/androidTest/assets/corpus/manifest.csv` 只有注释模板、无 wav，评测用例 `assumeTrue` 自动跳过 |
+| 4-4 | G07 签字 / NOTICE / SBOM | 未开始 | 模型 license 仍 PENDING，待法务 |
+
 
 ## 处理顺序
 
