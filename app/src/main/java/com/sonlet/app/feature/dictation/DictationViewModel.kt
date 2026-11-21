@@ -95,17 +95,22 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
     val toastFlow = toasts.receiveAsFlow()
 
     init {
+        // 正文走独立通道:插入成功后才确认交付,不再与提示共享背压
+        viewModelScope.launch {
+            controller.results.collect { result ->
+                // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
+                val updated = TextInsertionPolicy.insert(editorValue, result.text)
+                originalState.value = result.original
+                editorValue = updated
+                onEditorChanged?.invoke(updated)
+                controller.confirmDelivered(result.sessionId, result.resultId)
+                toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_inserted))
+            }
+        }
+        // 轻提示:允许丢弃,trySend 不阻塞调用方
         viewModelScope.launch {
             controller.events.collect { event ->
                 when (event) {
-                    is DictationEvent.TranscriptReady -> {
-                        // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
-                        val updated = TextInsertionPolicy.insert(editorValue, event.text)
-                        originalState.value = event.original
-                        editorValue = updated
-                        onEditorChanged?.invoke(updated)
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_inserted))
-                    }
                     is DictationEvent.TranscriptEmpty -> {
                         originalState.value = event.original
                         val message = if (event.original == null) {
@@ -113,14 +118,15 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
                         } else {
                             com.sonlet.app.R.string.msg_filtered
                         }
-                        toasts.send(Toast.Res(message))
+                        toasts.trySend(Toast.Res(message))
                     }
                     DictationEvent.TooShort ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_too_short))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_too_short))
                     DictationEvent.DurationCapped ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_duration_capped))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_duration_capped))
                     DictationEvent.RouteChanged ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_route_changed))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_route_changed))
+                    is DictationEvent.TranscriptReady -> Unit
                 }
             }
         }
