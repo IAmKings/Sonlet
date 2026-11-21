@@ -250,7 +250,10 @@ fun DictationScreen(viewModel: DictationViewModel) {
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .imePadding(),
         ) { data ->
             Snackbar(
                 snackbarData = data,
@@ -693,6 +696,16 @@ internal fun formatTimer(durationMs: Long, limitMs: Long): String {
 }
 
 /** P1 交互模式切换:仅 READY/RECORDING 展示;随时可切,行为对当前会话安全 */
+/** 选中标记:除了填充色再给一个勾,色觉障碍与高对比度下也能分辨(DESIGN.md §3) */
+@Composable
+private fun SegmentCheck() {
+    Icon(
+        imageVector = SonletIcons.Check,
+        contentDescription = null,
+        modifier = Modifier.size(18.dp),
+    )
+}
+
 @Composable
 private fun ModeToggleRow(
     state: DictationUiState,
@@ -726,7 +739,7 @@ private fun ModeToggleRow(
             onClick = { onHoldModeChange(false) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             colors = segColors,
-            icon = {},
+            icon = { if (!holdMode) SegmentCheck() },
         ) {
             Text(
                 stringResource(R.string.mode_toggle_tap),
@@ -738,7 +751,7 @@ private fun ModeToggleRow(
             onClick = { onHoldModeChange(true) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             colors = segColors,
-            icon = {},
+            icon = { if (holdMode) SegmentCheck() },
         ) {
             Text(
                 stringResource(R.string.mode_toggle_hold),
@@ -776,6 +789,29 @@ object SonletIcons {
                     horizontalLineToRelative(2f)
                     verticalLineToRelative(-2.06f)
                     arcTo(9f, 9f, 0f, false, false, 21f, 11f)
+                    close()
+                },
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
+    }
+
+    val Check: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "SonletCheck",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            addPath(
+                pathData = androidx.compose.ui.graphics.vector.PathData {
+                    moveTo(9f, 16.17f)
+                    lineTo(4.83f, 12f)
+                    lineTo(3.41f, 13.41f)
+                    lineTo(9f, 19f)
+                    lineTo(21f, 7f)
+                    lineTo(19.59f, 5.59f)
                     close()
                 },
                 fill = SolidColor(Color.Black),

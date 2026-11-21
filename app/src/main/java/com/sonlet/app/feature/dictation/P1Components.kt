@@ -38,7 +38,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sonlet.app.R
@@ -126,6 +128,8 @@ fun HoldToTalkButton(
             R.string.a11y_voice_button_start
         },
     )
+    val startAction = stringResource(R.string.a11y_voice_button_start)
+    val finishAction = stringResource(R.string.a11y_voice_button_finish)
     val containerColor = if (interactive) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -165,7 +169,20 @@ fun HoldToTalkButton(
                     Modifier
                 },
             )
-            .semantics { contentDescription = a11y },
+            .semantics {
+                contentDescription = a11y
+                if (interactive) {
+                    // TalkBack/外接键盘无法"按住":提供一个等效的单次动作
+                    customActions = listOf(
+                        CustomAccessibilityAction(
+                            if (state.phase == DictationPhase.READY) startAction else finishAction,
+                        ) {
+                            if (state.phase == DictationPhase.READY) onPressStart() else onPressRelease()
+                            true
+                        },
+                    )
+                }
+            },
     ) {
         Text(
             text = label,
