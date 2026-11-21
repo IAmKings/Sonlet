@@ -1,0 +1,49 @@
+package com.sonlet.app.dictation.core
+
+import android.content.Context
+
+/**
+ * 用应用私有 [android.content.SharedPreferences] 保存草稿。
+ *
+ * 用 `commit()` 而不是 `apply()`:草稿量小(单条文本),同步写入才能保证
+ * 进程在下一帧被杀时内容已经落盘;调用方已做防抖,不会按每个按键写一次。
+ */
+class SharedPreferencesDraftStore(context: Context) : DraftStore {
+
+    private val prefs = context.applicationContext
+        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    override fun load(): DraftStore.Draft? {
+        val text = prefs.getString(KEY_TEXT, null) ?: return null
+        if (text.isEmpty()) return null
+        val draft = DraftStore.Draft.normalized(
+            text = text,
+            start = prefs.getInt(KEY_SELECTION_START, text.length),
+            end = prefs.getInt(KEY_SELECTION_END, text.length),
+        )
+        return draft
+    }
+
+    override fun save(draft: DraftStore.Draft) {
+        if (draft.text.isEmpty()) {
+            clear()
+            return
+        }
+        prefs.edit()
+            .putString(KEY_TEXT, draft.text)
+            .putInt(KEY_SELECTION_START, draft.selectionStart)
+            .putInt(KEY_SELECTION_END, draft.selectionEnd)
+            .commit()
+    }
+
+    override fun clear() {
+        prefs.edit().remove(KEY_TEXT).remove(KEY_SELECTION_START).remove(KEY_SELECTION_END).commit()
+    }
+
+    private companion object {
+        const val PREFS_NAME = "editor_draft"
+        const val KEY_TEXT = "text"
+        const val KEY_SELECTION_START = "selection_start"
+        const val KEY_SELECTION_END = "selection_end"
+    }
+}
