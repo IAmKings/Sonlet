@@ -10,6 +10,7 @@
 - [第三方版本锁定清单](docs/third_party_versions.md)
 - [第三方许可证清单](docs/third_party_licenses.md)
 - [发布门检查清单](docs/release_checklist.md)
+- [升级路径验证方案](docs/upgrade_verification_plan.md)
 - [标识使用指南](docs/brand/sonlet-logo-kit/使用指南.md)
 
 ## 工程结构
