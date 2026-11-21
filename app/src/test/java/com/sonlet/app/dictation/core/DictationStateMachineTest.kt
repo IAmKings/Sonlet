@@ -113,11 +113,7 @@ class DictationStateMachineTest {
             engine = FakeAsrEngine().apply { transcribeText = "  你好世界  " },
         )
         val readyEvents = mutableListOf<DictationEvent.TranscriptReady>()
-        val collector = launch {
-            controller.events.collect {
-                if (it is DictationEvent.TranscriptReady) readyEvents.add(it)
-            }
-        }
+        val collector = launch { controller.results.collect { readyEvents.add(it) } }
         awaitPhase(controller, DictationPhase.READY)
         controller.dispatch(DictationCommand.Start)
         awaitPhase(controller, DictationPhase.RECORDING)
@@ -481,11 +477,7 @@ class DictationStateMachineTest {
             },
             speechSegmenter = segmenter,
         )
-        val collector = launch {
-            controller.events.collect {
-                if (it is DictationEvent.TranscriptReady) readyEvents.add(it)
-            }
-        }
+        val collector = launch { controller.results.collect { readyEvents.add(it) } }
         awaitPhase(controller, DictationPhase.READY)
         controller.dispatch(DictationCommand.Start)
         awaitPhase(controller, DictationPhase.RECORDING)
@@ -509,11 +501,7 @@ class DictationStateMachineTest {
             engine = FakeAsrEngine().apply { transcribeText = "嗯 这个 这个 方案" },
             styleProvider = { DictationStyle.CONCISE },
         )
-        val collector = launch {
-            controller.events.collect {
-                if (it is DictationEvent.TranscriptReady) readyEvents.add(it)
-            }
-        }
+        val collector = launch { controller.results.collect { readyEvents.add(it) } }
         awaitPhase(controller, DictationPhase.READY)
         controller.dispatch(DictationCommand.Start)
         awaitPhase(controller, DictationPhase.RECORDING)

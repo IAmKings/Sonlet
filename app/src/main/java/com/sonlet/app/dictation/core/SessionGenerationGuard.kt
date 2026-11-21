@@ -8,7 +8,8 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * - [beginSession] 自增代际并返回新 sessionId;旧会话的 sessionId 立即失去交付权。
  * - [canDeliver]:结果 sessionId 必须等于当前 activeSession。
- * - [markDelivered]:同一 resultId 至多交付一次(去重集合随会话切换清理)。
+ * - [markDelivered]:同一 resultId 至多发射一次(去重集合随会话切换清理)。
+ * - [confirmDelivered]:UI 真正插入正文后的确认,与发射去重分开记录。
  * - [invalidateAll]:取消/后台场景整体失效。
  *
  * 线程安全:全部方法可在任意线程调用;Controller 命令循环串行使用,
@@ -23,12 +24,15 @@ class SessionGenerationGuard {
 
     private val deliveredResultIds: MutableSet<String> = Collections.synchronizedSet(LinkedHashSet())
 
+    private val confirmedResultIds: MutableSet<String> = Collections.synchronizedSet(LinkedHashSet())
+
     val currentSessionId: Long
         get() = activeSessionId
 
     /** 开启新会话:旧会话结果全部失效 */
     fun beginSession(): Long {
         deliveredResultIds.clear()
+        confirmedResultIds.clear()
         activeSessionId = generation.incrementAndGet()
         return activeSessionId
     }
@@ -44,6 +48,7 @@ class SessionGenerationGuard {
     fun invalidateAll() {
         activeSessionId = NO_SESSION
         deliveredResultIds.clear()
+        confirmedResultIds.clear()
     }
 
     /** 结果代际是否匹配当前会话 */
@@ -58,6 +63,18 @@ class SessionGenerationGuard {
         if (!canDeliver(sessionId)) return false
         return deliveredResultIds.add(resultId)
     }
+
+    /**
+     * UI 已把结果插入编辑器后的确认;true = 首次确认,false = 重复或会话已失效。
+     * 与 [markDelivered] 分开:发射去重发生在流水线,确认发生在消费者。
+     */
+    fun confirmDelivered(sessionId: Long, resultId: String): Boolean {
+        if (!canDeliver(sessionId)) return false
+        return confirmedResultIds.add(resultId)
+    }
+
+    /** 测试与诊断用:该 resultId 是否已被消费者确认 */
+    fun isConfirmed(resultId: String): Boolean = confirmedResultIds.contains(resultId)
 
     companion object {
         const val NO_SESSION = 0L
