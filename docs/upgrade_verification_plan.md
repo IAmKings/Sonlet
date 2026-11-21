@@ -114,7 +114,27 @@ diff /tmp/before.txt /tmp/after.txt
 | 草稿 | 空（0.1.2 无持久化，预期） |
 | 输出风格 | 回到「原文」（未持久化，预期） |
 
-缓存是否真的失效并只重算一次，本轮只有间接证据（首启比二启慢约 0.3 秒，与一次 239MB 摘要的量级相符）；应用非 debuggable，读不到 `model_verification.xml` 里的 key。
+### 缓存行为的直接证据
+
+`ModelRepository.verify()` 已加 `SonletModel` 日志，能打出命中/未命中与耗时。用 debug 包做了一组对照（`install -r` 同一份 APK 也会刷新 `lastUpdateTime`，效果等同升级）：
+
+```
+第 1 次启动(全新安装)
+verify: 未命中缓存,重算摘要 key=1795274416317:c71f0ce0…2cd51
+verify: 摘要完成 225ms model=239233841B tokens=315894B modelOk=true tokensOk=true
+
+第 2 次启动(同包)
+verify: 命中缓存,跳过摘要 key=1795274416317:c71f0ce0…2cd51
+
+第 3 次启动(覆盖安装后,key 里的时间戳变化)
+verify: 未命中缓存,重算摘要 key=1795274465009:c71f0ce0…2cd51
+verify: 摘要完成 221ms model=239233841B tokens=315894B modelOk=true tokensOk=true
+
+第 4 次启动(再次命中)
+verify: 命中缓存,跳过摘要 key=1795274465009:c71f0ce0…2cd51
+```
+
+结论：升级后缓存失效、重算一次、随后再次命中，行为与设计一致；单次摘要成本约 220ms（239MB 模型 + 316KB 词表），这就是升级后首启的那点额外开销。
 
 ## 判定
 
