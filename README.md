@@ -63,24 +63,44 @@ scripts/fetch_model.sh
 
 ## 发布
 
-推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml` 会自动构建并发布到 GitHub Release：
+发布分两步：**候选构建**与**公开动作**。推 tag 只产生候选包，不会自动出现在 Releases 页面。
+
+### 1. 构建候选包
+
+推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml`（Release Candidate）会构建并校验：
 
 ```sh
-git tag -a v0.1.2 -m "v0.1.2"
-git push origin v0.1.2
+git tag -a v0.1.3 -m "v0.1.3"
+git push origin v0.1.3
 ```
 
-工作流依次：解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 创建 Release 并上传 `Sonlet-<版本>-arm64-v8a.apk`。同名 Release 已存在时改为覆盖上传，重跑同一个 tag 不会失败。
+工作流依次：读取已公开版本 → 解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 上传 artifact `sonlet-release-apk`。
 
-版本号只从 tag 取：versionCode 按 `major*10000 + minor*100 + patch` 计算，次版本与修订号限 0～99，且必须大于已发布版本。`app/build.gradle.kts` 里的默认值只影响本地构建，CI 由 tag 注入。
+跑完在该 run 的 Summary 里拿到三样东西：`tag`、`run_id`、候选包 `SHA-256`。
 
-只想演练、不发布：
+只想演练、不产出候选包以外的副作用：
 
 ```sh
-gh workflow run Release --ref main -f tag=v0.1.1 -f dry_run=true
+gh workflow run "Release Candidate" --ref main -f tag=v0.1.3
 ```
 
-`dry_run` 默认 true，跑完构建与校验后跳过发布步骤。模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。
+模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。
+
+### 2. 公开发布
+
+在 Actions → Publish 手动触发，填入上一步的 `tag`、`run_id`、`expected_sha256`，以及批准人。该工作流绑定 `release` environment，需要仓库 Settings → Environments → `release` 里配置的 Required reviewers 批准后才会执行。
+
+执行时依次校验：`release` environment 存在 → tag 格式 → **tag 指向的提交等于该 run 的 headSha** → 下载 artifact 并重算 **SHA-256 与输入一致** → 创建 Release 并上传附件。
+
+已存在的 Release 不会被覆盖：同名附件摘要相同则直接成功（幂等重跑），摘要不同则失败并保留原附件。
+
+版本号只从 tag 取：versionCode 按 `major*10000 + minor*100 + patch` 计算，次版本与修订号限 0～99，且必须大于**已公开发布**的最大 versionCode（由 `gh release list` 求出，不再写死）。`app/build.gradle.kts` 里的默认值只影响本地构建，CI 由 tag 注入。
+
+复核历史包或离线核对时可跳过递增门：
+
+```sh
+python3 scripts/verify_release_apk.py v0.1.0 --apk <path> --build-tools <sdk>/build-tools/36.0.0 --published-version-code 0
+```
 
 公开发行前，按[发布准备计划](docs/release_readiness_plan.md)与[发布门检查清单](docs/release_checklist.md)记录设备验收、APK 哈希与分发批准。
 

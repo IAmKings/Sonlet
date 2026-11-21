@@ -20,6 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 校验 workflow 写法本身:shellcheck 级别的引用/重定向问题在合并前暴露
+      - name: 安装 actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$ARCHIVE" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP" actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: 检查 workflow
+        run: actionlint
+
       - uses: actions/setup-java@v6
         with:
           distribution: temurin

@@ -1,0 +1,134 @@
+name: Publish
+
+# 公开动作与候选构建分离:本工作流只做"发布已验收的那一份"。
+# 触发前需要:Candidate 工作流产出的 run_id、该 run 汇总里的 SHA-256、负责人批准。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要发布的版本标签（须已在 Candidate 工作流中构建过）
+        type: string
+        required: true
+      run_id:
+        description: Candidate 工作流的 run_id（见该 run 汇总）
+        type: string
+        required: true
+      expected_sha256:
+        description: 候选包 APK 的 SHA-256（见该 run 汇总）
+        type: string
+        required: true
+      approved_by:
+        description: 批准本次公开的负责人
+        type: string
+        required: true
+
+concurrency:
+  group: publish-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: 发布已验收的候选包
+    runs-on: ubuntu-latest
+    # 仓库 Settings -> Environments 中必须存在 release,并配置 Required reviewers
+    environment: release
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id }}
+      EXPECTED_SHA: ${{ inputs.expected_sha256 }}
+      APPROVED_BY: ${{ inputs.approved_by }}
+    steps:
+      - name: 确认批准环境已配置
+        run: |
+          if ! gh api "repos/$GITHUB_REPOSITORY/environments/release" > /dev/null; then
+            echo "::error::仓库缺少 release environment,发布门禁未生效,拒绝发布"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验输入版本
+        run: python3 scripts/verify_release_apk.py "$TAG" --published-version-code 0 > /dev/null
+
+      - name: 校验提交来源一致
+        run: |
+          RUN_SHA=$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          if [ -z "$RUN_SHA" ]; then
+            echo "::error::找不到 run $RUN_ID"
+            exit 1
+          fi
+          git fetch --tags --quiet
+          TAG_SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if [ "$RUN_SHA" != "$TAG_SHA" ]; then
+            echo "::error::tag $TAG 指向 $TAG_SHA,而 run $RUN_ID 构建的是 $RUN_SHA"
+            exit 1
+          fi
+
+      - name: 下载候选包
+        run: gh run download "$RUN_ID" -n sonlet-release-apk -D dist
+
+      - name: 校验制品摘要
+        run: |
+          APK=$(find dist -name '*.apk' -type f | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "::error::候选 artifact 中没有 APK"
+            exit 1
+          fi
+          ACTUAL=$(sha256sum "$APK" | awk '{print $1}')
+          if [ "$ACTUAL" != "$EXPECTED_SHA" ]; then
+            echo "::error::制品摘要不符:期望 $EXPECTED_SHA,实得 $ACTUAL"
+            exit 1
+          fi
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: 发布（不覆盖既有附件）
+        run: |
+          ASSET="Sonlet-$VERSION-arm64-v8a.apk"
+          cp "$APK" "$ASSET"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if ! gh release download "$TAG" -p "$ASSET" -D existing > /dev/null 2>&1; then
+              echo "::error::Release $TAG 已存在但没有 $ASSET,拒绝改动远端"
+              exit 1
+            fi
+            EXISTING=$(sha256sum "existing/$ASSET" | awk '{print $1}')
+            if [ "$EXISTING" = "$EXPECTED_SHA" ]; then
+              echo "Release $TAG 已是该制品,无需重复发布"
+              exit 0
+            fi
+            echo "::error::Release $TAG 已有不同摘要的附件($EXISTING),保留原附件"
+            exit 1
+          fi
+
+          CREATED=0
+          if gh release create "$TAG" --title "Sonlet $VERSION" --generate-notes --verify-tag; then
+            CREATED=1
+          fi
+          if ! gh release upload "$TAG" "$ASSET"; then
+            if [ "$CREATED" = "1" ]; then
+              COUNT=$(gh release view "$TAG" --json assets --jq '.assets | length')
+              if [ "$COUNT" = "0" ]; then
+                gh release delete "$TAG" --yes
+              fi
+            fi
+            echo "::error::上传附件失败"
+            exit 1
+          fi
+
+      - name: 汇总
+        if: always()
+        run: |
+          {
+            echo "### 发布 $TAG"
+            echo ""
+            echo "- 批准人: \`$APPROVED_BY\`"
+            echo "- 制品 SHA-256: \`$EXPECTED_SHA\`"
+            echo "- 来源 run: \`$RUN_ID\`"
+          } >> "$GITHUB_STEP_SUMMARY"

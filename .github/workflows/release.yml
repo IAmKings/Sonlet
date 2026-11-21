@@ -1,49 +1,59 @@
-name: Release
+name: Release Candidate
 
-# 推 v* tag 时自动构建签名包并发布 GitHub Release;
-# workflow_dispatch 用于演练:默认只构建校验,不创建 Release。
+# 推 v* tag 或手动触发时构建并校验签名包,产出 artifact 与摘要。
+# 公开发布是独立动作:见 publish.yml,需 environment 批准 + 精确 SHA-256。
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: 演练使用的版本标签（如 v0.1.2），需与推送代码内容一致
+        description: 候选版本标签（如 v0.1.3），需与推送代码内容一致
         type: string
         required: true
-      dry_run:
-        description: 只构建与校验，不创建 Release
-        type: boolean
-        default: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-candidate-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    name: 构建并发布签名 APK
+  candidate:
+    name: 构建候选包
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 递增门以已公开版本为基准:取所有 Release tag 里最大的 versionCode
+      - name: 读取已公开版本
+        id: published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PUBLISHED=$(gh release list --limit 1000 --json tagName --jq '.[].tagName' \
+            | python3 scripts/verify_release_apk.py --list-published)
+          echo "code=$PUBLISHED" >> "$GITHUB_OUTPUT"
 
       # 版本号只认 tag:versionName 去 v,versionCode 为 major*10000+minor*100+patch
       - name: 解析版本
         id: version
         env:
           INPUT_TAG: ${{ inputs.tag }}
+          PUBLISHED: ${{ steps.published.outputs.code }}
         run: |
           TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
-          if ! VERSION_CODE=$(python3 scripts/verify_release_apk.py "$TAG"); then
+          if ! VERSION_CODE=$(python3 scripts/verify_release_apk.py "$TAG" \
+                 --published-version-code "$PUBLISHED"); then
             echo "::error::版本标签不合法:$TAG"
             exit 1
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+            echo "version_code=$VERSION_CODE"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
         with:
@@ -117,32 +127,48 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
             app/build/outputs/apk/release/app-release.apk
 
-      - name: 发布 Release
-        if: github.event_name == 'push' || inputs.dry_run == false
+      - name: 打包候选件
+        id: artifact
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          ASSET="$RUNNER_TEMP/Sonlet-$VERSION-arm64-v8a.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$ASSET"
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            # 同名 tag 已存在 Release:补传或覆盖资产,不再重复创建
-            gh release upload "$TAG" "$ASSET" --clobber
-          else
-            gh release create "$TAG" "$ASSET" \
-              --title "Sonlet $VERSION" \
-              --generate-notes \
-              --verify-tag
-          fi
+          ASSET="Sonlet-$VERSION-arm64-v8a.apk"
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/$ASSET"
+          SHA=$(sha256sum "dist/$ASSET" | awk '{print $1}')
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: 上传候选包
+        uses: actions/upload-artifact@v7
+        with:
+          name: sonlet-release-apk
+          path: dist/${{ steps.artifact.outputs.asset }}
+          if-no-files-found: error
+          retention-days: 30
 
       - name: 汇总
         if: always()
         env:
           TAG: ${{ steps.version.outputs.tag }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          ASSET: ${{ steps.artifact.outputs.asset }}
+          SHA: ${{ steps.artifact.outputs.sha256 }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          echo "### $TAG" >> "$GITHUB_STEP_SUMMARY"
-          ls -lh app/build/outputs/apk/release/app-release.apk >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          {
+            echo "### 候选包 $TAG"
+            echo ""
+            echo "- versionCode: \`$VERSION_CODE\`"
+            echo "- 资产: \`$ASSET\`"
+            echo "- SHA-256: \`$SHA\`"
+            echo "- run_id: \`$RUN_ID\`"
+            echo ""
+            echo "公开发布请执行 Publish 工作流,传入上面的 tag、run_id、SHA-256;"
+            echo "该工作流需要 release environment 批准。"
+          } >> "$GITHUB_STEP_SUMMARY"
+          ls -lh dist/*.apk >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
 
       - name: 清理签名参数
         if: always()

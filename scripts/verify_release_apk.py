@@ -7,14 +7,15 @@ import json
 import re
 import struct
 import subprocess
+import sys
 from pathlib import Path
 from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-# v0.1.0 的公开 APK 证书与 versionCode，用于验证升级路径。
+# v0.1.0 起沿用的公开签名证书指纹，用于验证升级路径。
 PUBLISHED_SIGNER = "22fa1ab87ca46f2d6003b95983b9156b7e8b35d3810d91a6af4010d23339049b"
-PUBLISHED_VERSION_CODE = 100
+MAX_VERSION_CODE = 2_100_000_000
 NATIVE_LIBRARIES = ("libonnxruntime.so", "libsherpa-onnx-jni.so")
 LICENSE_ASSETS = (
     "NOTICE.txt",
@@ -25,15 +26,26 @@ LICENSE_ASSETS = (
 )
 
 
-def version_code(tag):
+def version_code(tag, published=0):
     match = re.fullmatch(r"v(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)", tag)
     if not match:
         raise ValueError("版本须为 vMAJOR.MINOR.PATCH，次版本与修订号限 0～99")
     major, minor, patch = map(int, match.groups())
     code = major * 10000 + minor * 100 + patch
-    if not PUBLISHED_VERSION_CODE < code <= 2_100_000_000:
-        raise ValueError("versionCode 须大于已发布的 100 且不超过 2100000000")
+    if not published < code <= MAX_VERSION_CODE:
+        raise ValueError(f"versionCode 须大于已发布的 {published} 且不超过 {MAX_VERSION_CODE}")
     return code
+
+
+def max_version_code(tags):
+    """从已公开发布的 tag 集合里取最大 versionCode；无法解析的 tag 跳过。"""
+    best = 0
+    for tag in tags:
+        try:
+            best = max(best, version_code(tag))
+        except ValueError:
+            continue
+    return best
 
 
 def sdk_output(sdk, tool, *args):
@@ -114,12 +126,28 @@ def verify_apk(apk, sdk, tag, code):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tag")
+    parser.add_argument("tag", nargs="?")
     parser.add_argument("--apk", type=Path)
     parser.add_argument("--build-tools", type=Path)
+    parser.add_argument(
+        "--published-version-code",
+        type=int,
+        default=0,
+        help="已公开的最大 versionCode；新版本必须大于它，历史包复核时传 0",
+    )
+    parser.add_argument(
+        "--list-published",
+        action="store_true",
+        help="从标准输入读取已发布 tag（每行一个），输出其中最大的 versionCode",
+    )
     args = parser.parse_args()
     try:
-        code = version_code(args.tag)
+        if args.list_published:
+            print(max_version_code(line.strip() for line in sys.stdin if line.strip()))
+            return
+        if not args.tag:
+            parser.error("缺少版本标签")
+        code = version_code(args.tag, args.published_version_code)
         if args.apk is None:
             print(code)
         elif args.build_tools is None:
