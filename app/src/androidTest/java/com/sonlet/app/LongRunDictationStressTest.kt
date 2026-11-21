@@ -87,9 +87,8 @@ class LongRunDictationStressTest {
             scope = scope,
         )
         scope.launch {
-            controller.events.collect {
-                if (it is DictationEvent.TranscriptReady) delivered.add(it.sessionId)
-            }
+            // 正文走无损通道:轻提示事件允许丢弃,不能用它统计交付
+            controller.results.collect { delivered.add(it.sessionId) }
         }
         try {
             controller.start()

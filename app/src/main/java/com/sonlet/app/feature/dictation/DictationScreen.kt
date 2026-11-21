@@ -98,17 +98,12 @@ fun DictationScreen(viewModel: DictationViewModel) {
     val original by viewModel.latestOriginal.collectAsStateWithLifecycle()
     var showOriginal by remember { mutableStateOf(false) }
 
-    // 编辑器状态:以组合内为最新真值,写回 VM 供交付时使用(CC-04)。
-    // 用 rememberSaveable 保存文本与光标:转屏/深色切换/进程重建都不得丢稿。
-    var editorValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(""))
-    }
+    // 编辑器状态:组合内即时渲染,真值同步到 VM 供交付使用(CC-04)。
+    // 刻意不用 rememberSaveable:听写正文属敏感内容,不得进入 saved state(Bundle/系统快照)。
+    // 转屏/深色切换靠 VM 存活保留草稿;进程被杀即丢弃,这是隐私取舍而非缺陷。
+    var editorValue by remember(viewModel) { mutableStateOf(viewModel.editorValue) }
     LaunchedEffect(viewModel) {
         viewModel.onEditorChanged = { editorValue = it }
-    }
-    // 首帧把恢复出来的文本回灌 VM(进程重建时 VM 是全新的空值),之后由 onValueChange 持续同步
-    LaunchedEffect(Unit) {
-        viewModel.updateEditor(editorValue)
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
