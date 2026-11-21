@@ -18,6 +18,14 @@
 | 界面状态（输出风格） | 未持久化 | **回到「原文」**，属预期 |
 | APK 内 assets 模型 | 随包替换 | 由摘要校验保证一致 |
 
+## 一处必须先说清的前提
+
+**0.1.2 没有草稿持久化。** 草稿写入 `SharedPreferences("editor_draft")` 是 0.1.3 才有的能力（`DraftStore` / `DraftKeeper`），0.1.2 里正文只在 ViewModel 内存中。
+
+所以「升级后草稿还在」对 0.1.2 → 0.1.3 **不成立且不可验证**：升级会杀进程，内存里的正文必然消失。这不是回归，是能力边界。这份方案里的草稿检查项，只对 **0.1.3 及之后的版本**（第一次真正有持久化）有意义，用于防止未来版本把已保存的草稿弄丢。
+
+换个说法：0.1.2 → 0.1.3 真正能验的是——升级不丢"已经存在的持久化数据与授权状态"、不崩溃、首次启动不会因为缓存失效而卡住。
+
 ## 前置条件
 
 1. 两份 APK 同一证书（否则 `install -r` 直接因签名不一致失败）：
@@ -29,7 +37,7 @@ $BT/apksigner verify --print-certs /tmp/Sonlet-0.1.3.apk | grep "SHA-256 digest"
 # 两者都应为 22fa1ab87ca46f2d6003b95983b9156b7e8b35d3810d91a6af4010d23339049b
 ```
 
-2. versionCode 递增：0.1.2 = 101，0.1.3 = 103。
+2. versionCode 递增：0.1.2 = 102，0.1.3 = 103。
 
 3. 设备已解锁。锁屏状态下 `am instrument` 与部分 shell 命令会被系统拒绝。
 
@@ -70,7 +78,7 @@ $BT/apksigner verify --print-certs /tmp/Sonlet-0.1.3.apk | grep "SHA-256 digest"
 |---|---|
 | 冷启动 | 无崩溃；日志无 `FATAL`/`AndroidRuntime` |
 | 首次启动耗时 | 明显长于平时（重算 239MB 摘要），但应在数秒内进入 READY |
-| 草稿 | 正文原样在、光标位置合理 |
+| 草稿 | 0.1.2 起点升上来应为空（无持久化能力）；0.1.3 及之后的升级，正文与光标应保留 |
 | 麦克风 | 直接可录，不弹权限对话框 |
 | 风格 | 显示「原文」（预期重置，不算缺陷） |
 | 二次启动 | 回到正常速度（缓存已写回，不再重算） |
@@ -88,6 +96,25 @@ diff /tmp/before.txt /tmp/after.txt
 
 - **降级被拒**：`adb install -r /tmp/Sonlet-0.1.2.apk` 应报 `INSTALL_FAILED_VERSION_DOWNGRADE`。
 - **风格重置**：界面不持久化输出风格，升级后回到「原文」。
+
+## 本次实测（2026-11-21，0.1.2 → 0.1.3）
+
+| 项 | 结果 |
+|---|---|
+| `install -r` | Success，未卸载 |
+| versionCode / versionName | 102 → 103，0.1.2 → 0.1.3 |
+| dataDir | `/data/user/0/com.sonlet.app`，前后一致 |
+| appId | 10547，前后一致（升级不改 uid） |
+| RECORD_AUDIO | 升级前后均 `granted=true`，未重新弹窗 |
+| app ops 记录 | 前后一致，仅时间戳相对值变化 |
+| 冷启动 | `am start -W` TotalTime 331ms |
+| 首次进 READY | 2.6s（缓存 key 因 `lastUpdateTime` 变化而失效，需重算摘要） |
+| 第二次进 READY | 2.3s |
+| 崩溃 | logcat 无 FATAL / AndroidRuntime |
+| 草稿 | 空（0.1.2 无持久化，预期） |
+| 输出风格 | 回到「原文」（未持久化，预期） |
+
+缓存是否真的失效并只重算一次，本轮只有间接证据（首启比二启慢约 0.3 秒，与一次 239MB 摘要的量级相符）；应用非 debuggable，读不到 `model_verification.xml` 里的 key。
 
 ## 判定
 
