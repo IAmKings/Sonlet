@@ -1,7 +1,94 @@
+# Sonlet 评测语料（合成）
+# 由 scripts/gen_corpus_tts.sh 用 macOS say 生成，16kHz 单声道 PCM16；
+# 合成语音缺少口音、口吃、背景噪声，只用于回归门槛，不代表真人分布。
 # file,lang,ground_truth
-# 格式:文件名,语言(zh/en/mixed),标注真值;以 # 开头的行被忽略
-# 将对应 16kHz 单声道 wav 放在本目录(与 manifest.csv 同级,文件名对应第一列)
-# 示例:
-# zh_001.wav,zh,今天天气不错我们去公园散步
-# en_001.wav,en,The tribal chieftain called for the boy
-# mix_001.wav,mixed,我用GitHub提交了这个feature
+zh_001.wav,zh,今天天气不错我们去公园散步吧
+zh_002.wav,zh,帮我把会议时间改到明天下午三点
+zh_003.wav,zh,这份报告需要在周五之前完成
+zh_004.wav,zh,我记得钥匙放在门口的鞋柜上面
+zh_005.wav,zh,冰箱里还有两个鸡蛋和一盒牛奶
+zh_006.wav,zh,请把空调温度调低两度
+zh_007.wav,zh,他说明天早上会准时到达车站
+zh_008.wav,zh,这道菜有点咸下次可以少放点盐
+zh_009.wav,zh,我们下午去图书馆借几本书
+zh_010.wav,zh,火车还有二十分钟就要开了
+zh_011.wav,zh,妈妈的生日是下个月的第一个星期天
+zh_012.wav,zh,我把充电器落在办公室了
+zh_013.wav,zh,这条路正在施工建议绕行
+zh_014.wav,zh,孩子今天在学校表现得很好
+zh_015.wav,zh,天气预报说周末会下大雨
+zh_016.wav,zh,记得出门之前把垃圾带下去
+zh_017.wav,zh,会议室的投影仪好像坏了
+zh_018.wav,zh,我订了两张明天晚上的电影票
+zh_019.wav,zh,楼下新开了一家面馆味道很不错
+zh_020.wav,zh,请帮我把这些文件复印三份
+zh_021.wav,zh,他每天早上六点起床跑步
+zh_022.wav,zh,这个方案还需要再讨论一次
+zh_023.wav,zh,我的手机快没电了需要充电
+zh_024.wav,zh,周末我们一起去爬山怎么样
+zh_025.wav,zh,快递显示已经放在门卫处了
+zh_026.wav,zh,医生建议多喝水多休息
+zh_027.wav,zh,这次的考试成绩比上次好很多
+zh_028.wav,zh,会议延迟到下午四点开始
+zh_029.wav,zh,我把照片都整理到网盘里了
+zh_030.wav,zh,明天记得带伞可能会下雨
+en_001.wav,en,The meeting has been moved to three in the afternoon
+en_002.wav,en,Please send me the report before Friday
+en_003.wav,en,I left my keys on the kitchen table
+en_004.wav,en,We should book the tickets as soon as possible
+en_005.wav,en,The weather is going to be cold this weekend
+en_006.wav,en,Could you turn down the volume a little
+en_007.wav,en,She said she would arrive around noon
+en_008.wav,en,The train leaves in twenty minutes
+en_009.wav,en,Remember to bring your passport tomorrow
+en_010.wav,en,This restaurant is famous for its noodles
+en_011.wav,en,I need to charge my phone before we leave
+en_012.wav,en,The children are playing in the garden
+en_013.wav,en,He has been working here for five years
+en_014.wav,en,Please close the window it is quite windy
+en_015.wav,en,Our flight was delayed by two hours
+en_016.wav,en,I will call you back in ten minutes
+en_017.wav,en,The package arrived earlier than expected
+en_018.wav,en,We need to finish this task by Thursday
+en_019.wav,en,She bought a new laptop last week
+en_020.wav,en,The doctor advised him to rest for a few days
+en_021.wav,en,Turn left at the next traffic light
+en_022.wav,en,I have already sent the email to the team
+en_023.wav,en,The movie starts at seven thirty
+en_024.wav,en,Could you help me carry these boxes
+en_025.wav,en,They are planning a trip to the mountains
+en_026.wav,en,The coffee here is better than the one downtown
+en_027.wav,en,He forgot to bring his umbrella again
+en_028.wav,en,We should leave before the traffic gets heavy
+en_029.wav,en,The project will be finished by the end of the month
+en_030.wav,en,Please let me know if you need anything else
+mixed_001.wav,mixed,我用GitHub提交了这个feature
+mixed_002.wav,mixed,把文件存成PDF格式再发给我
+mixed_003.wav,mixed,这个bug在iOS上也能复现
+mixed_004.wav,mixed,我在App Store下载了一个新工具
+mixed_005.wav,mixed,记得更新一下钉钉里的日程
+mixed_006.wav,mixed,这份PPT的第三页需要改颜色
+mixed_007.wav,mixed,会议链接我发到微信群里了
+mixed_008.wav,mixed,用Excel把这个表格重新统计一遍
+mixed_009.wav,mixed,他的MacBook昨天突然黑屏了
+mixed_010.wav,mixed,我们下周一开个Zoom会议吧
+mixed_011.wav,mixed,这个API返回的数据格式有问题
+mixed_012.wav,mixed,请把截图发到飞书上
+mixed_013.wav,mixed,我在淘宝买了一个机械键盘
+mixed_014.wav,mixed,这个版本的Android有兼容性问题
+mixed_015.wav,mixed,帮我把代码push到main分支
+mixed_016.wav,mixed,今天的WiFi信号特别差
+mixed_017.wav,mixed,我用ChatGPT翻译了这段英文
+mixed_018.wav,mixed,发票需要开成公司抬头
+mixed_019.wav,mixed,这个链接在Chrome里打不开
+mixed_020.wav,mixed,我在Notion里整理了会议记录
+mixed_021.wav,mixed,请把Word文档转成PDF
+mixed_022.wav,mixed,这个功能要在iPhone上测试一下
+mixed_023.wav,mixed,我在小红书上看到一家店
+mixed_024.wav,mixed,记得把U盘还给我
+mixed_025.wav,mixed,这个report需要用中文再写一遍
+mixed_026.wav,mixed,我在B站看了一个教程视频
+mixed_027.wav,mixed,服务器在凌晨两点重启
+mixed_028.wav,mixed,请把账单发到我的邮箱
+mixed_029.wav,mixed,这个app的加载速度有点慢
+mixed_030.wav,mixed,我在地铁上用蓝牙耳机听歌
