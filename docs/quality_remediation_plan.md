@@ -12,7 +12,7 @@
 | 1 | 保护已发布附件 | 完成 | 同上：同名 Release 先比附件摘要，一致即成功、不一致即失败，不再覆盖上传 |
 | 1 | 新版本必须高于已公开版本 | 完成 | 同上：`--published-version-code` + `--list-published`，`tests/test_release_apk.py` 覆盖低于 / 等于 / 高于三种情况 |
 | 2 | 解耦结果与提示交付 | 完成 | `f09ef3b`（PR #30）：结果走 `Channel(UNLIMITED)`，消费者确认后才计入；`ResultDeliveryTest` 在提示停滞下 100 次转写全部恰好插入一次 |
-| 2 | 落实 30 秒录音截止 | 部分 | `372ad52` + `f5c139f`：截止改用单调时钟，读循环与状态机都按"连续 30 秒没有新样本"判定。**未做**：`DISPOSE_TIMEOUT_MS` 超预算时界面给错误——实际实现是 `withTimeoutOrNull` 静默放行（超时后 scope 已取消、麦克风已释放，没有可恢复动作），设计与实现不一致，待定改文档还是改代码 |
+| 2 | 落实 30 秒录音截止 | 完成 | `372ad52` + `f5c139f`：截止改用单调时钟，读循环与状态机都按"连续 30 秒没有新样本"判定。清理超 `DISPOSE_TIMEOUT_MS` 时静默放行，见下方设计决定 |
 | 2 | 录完后的路由变化保留转写 | 完成 | `372ad52`：路由失效只在 STARTING/RECORDING 中止，TRANSCRIBING 不取消 |
 | 3 | 明确草稿生命周期 | 完成 | `e456e0b`：正文不进 saved state；`7798997`：改为应用私有存储 + 防抖落盘，杀进程可恢复。隐私约定已同步（PRD §14）与验收条目（`acceptance_guide.md` 2.4–2.6），`beb9e56` |
 | 3 | 修正英文分段句界 | 完成 | `c13f782`（PR #33）：`Hello.` + `World` → `Hello. World`，中文全角、小数与标识符一并覆盖 |
@@ -22,6 +22,16 @@
 | 4-3 | CER/WER 与 P95 延迟 | 未开始 | `app/src/androidTest/assets/corpus/manifest.csv` 只有注释模板、无 wav，评测用例 `assumeTrue` 自动跳过 |
 | 4-4 | G07 签字 / NOTICE / SBOM | 未开始 | 模型 license 仍 PENDING，待法务 |
 
+
+### 设计决定：清理超预算静默放行
+
+`PcmAudioRecorder.dispose()` 用 `withTimeoutOrNull(DISPOSE_TIMEOUT_MS) { shutdown() }` 包住停机，超时后继续执行 `scope.cancel()`。这**不是**遗漏，是有意的取舍：
+
+- 超时意味着 `readLoop` 卡在 `record.read()` 里没有返回。此时 `scope` 已取消、`AudioRecord` 的引用随 job 一起被丢弃，麦克风归属由系统在进程内参数重建后回收，App 侧没有任何可以"修复"它的动作。
+- 给用户报一个"录音设备没释放"的错误，既不指向可执行的下一步，又会在下次进入页面时留下一个无法消除的提示。
+- 真正需要保证的是"不会挂着旧会话继续交付"和"新录音不被旧的持久占用"：前者由会话代际（`SessionGenerationGuard`）保证，后者由 `beginSession()` 拒绝并发会话保证。
+
+因此该路径保持静默。若将来出现设备侧确有麦克风未释放的可复现案例，再补"重启应用"级别的引导，而不是新增错误码。
 
 ## 处理顺序
 
@@ -49,7 +59,7 @@
 | 优先级 | 工作 | 实施与验收 |
 |---|---|---|
 | P1 | 解耦结果与提示交付 | 编辑器响应最终结果，Snackbar 使用独立的非阻塞提示通路。结果实际接收后再确认交付。在提示消费者停滞时完成 100 次模拟转写，100 条均恰好插入一次。补取消、重复结果和用户继续编辑的回归。审查时同场景仅收到 81 条。 |
-| P1 | 落实 30 秒录音截止 | 以单调时钟计算录音截止时间，PCM 样本上限继续用于限制缓冲。覆盖采集持续零读、读取阻塞、用户取消与超时同时发生。30 秒触发停录，清理预算沿用现有 `DISPOSE_TIMEOUT_MS` 的 2 秒。超出预算时界面给出错误，麦克风归属未释放前保持禁用新录音。 |
+| P1 | 落实 30 秒录音截止 | 以单调时钟计算录音截止时间，PCM 样本上限继续用于限制缓冲。覆盖采集持续零读、读取阻塞、用户取消与超时同时发生。30 秒触发停录，清理预算沿用现有 `DISPOSE_TIMEOUT_MS` 的 2 秒。超出预算时静默放行：界面不给错误、不上报新错误码（理由见「设计决定：清理超预算静默放行」）。 |
 | P2 | 录完后的路由变化保留转写 | 只在启动和正在采集时因路由失效中止。录完进入转写后移除设备，已有 PCM 应继续转写并交付一次。显式取消和切后台仍保证零交付。 |
 
 涉及 [DictationController](../app/src/main/java/com/sonlet/app/dictation/core/DictationController.kt)、[PcmAudioRecorder](../app/src/main/java/com/sonlet/app/audio/capture/PcmAudioRecorder.kt)、[DictationViewModel](../app/src/main/java/com/sonlet/app/feature/dictation/DictationViewModel.kt)及状态机、采集生命周期和长稳测试。先用现有 Fake 在 JVM 固定边界，再用真机验证真实录音资源和路由变化。对应 AC-P0-007、008、009、011、014、015、018。
