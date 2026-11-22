@@ -35,7 +35,9 @@
 
 2026-11-23 02:41 跑全量 42 项时，设备在长稳用例阶段重启（`uptime` 归零，`INSTRUMENTATION_ABORTED: System has crashed`）。同一批用例单独运行（评测、音频生命周期、分段器、模型冒烟）全部正常。
 
-未定因，两个方向：长稳用例连续 100 次开合 `AudioRecord` 的资源释放是否彻底；239MB 模型常驻 + 评测 90 条累积是否造成内存压力。在定位之前，**不要把长稳用例放进会跑全量的默认流程**，需要单独派发。
+两次复现都停在同一个位置：`AsrAccuracyEvalTest.evaluateCorpusIfPresent` 跑完（90 条模型推理正常）之后，进程进入 `LongRunDictationStressTest.hundredSessionsWithoutResourceLeak` 就崩，`logcat` 末尾只有 `INSTRUMENTATION_ABORTED: System has crashed`，没有 Java 异常。
+
+所以不是"长稳本身跑不动"——早期没有评测用例时它单独跑是绿的。更可能是**同一进程里先跑 90 条推理、再做 100 次录音会话**的累积内存压力（239MB 模型常驻 + 每次会话的音频缓冲）。在定位之前，两件事：不要把长稳用例放进默认全量流程，需要单独派发；以及先单独跑一次长稳（不含评测前置）确认它本身是否仍然可过。
 
 ### 3.2 `dictationRotatedScreenKeepsDraft` 之后新增的用例会挂起
 
