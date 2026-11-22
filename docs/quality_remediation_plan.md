@@ -1,6 +1,6 @@
 # Sonlet 代码质量整改计划
 
-**状态**　执行中，2026-11-22：第 1、2 节完成；第 3 节完成；第 4 节未开始。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.3](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.3)。
+**状态**　执行中，2026-11-22：第 1、2、3 节完成；第 4 节进行中（4-1、4-3 完成，4-2 部分，4-4 待法务）。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.3](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.3)。
 
 本轮目标是恢复可核验的发布流程，解决听写结果丢失和录音停不下来的问题，并补齐正文隐私与界面验收。既有性能目标、待验证项和受限内测批准沿用 [PRD](Hex_Android_Offline_ASR_PRD_v1.0.md)、[发布决策](release_decision.md)与[发布检查清单](release_checklist.md)。[上次候选包记录](release_readiness_plan.md)仅对应其中记录的文件摘要。
 
@@ -18,7 +18,7 @@
 | 3 | 修正英文分段句界 | 完成 | `c13f782`（PR #33）：`Hello.` + `World` → `Hello. World`，中文全角、小数与标识符一并覆盖 |
 | 3 | 补齐无障碍和键盘反馈 | 完成 | `c13f782`：分段选中态加勾选标记、按住模式补 TalkBack 等同动作、Snackbar 避让导航栏与软键盘；`b5fbd0b` 补外接键盘回车/空格切换 + 仪器用例 |
 | 4-1 | 单测 / Python / 双变体 Lint / actionlint / 签名构建 | 完成 | `ci.yml` 跑 `lintDebug lintRelease` 与 `actionlint`；签名构建在 Release Candidate 工作流内 |
-| 4-2 | 真机验收 | 部分 | 升级路径（`ba02dc3` 记录 0.1.2→0.1.3 实测）、真实录音、安装启动有证据；缺断网冷启动、取消/切后台/权限恢复成组记录、目标机型矩阵 |
+| 4-2 | 真机验收 | 部分 | 单机（Redmi 23078PND5G / Android 14）覆盖：安装冷启、0.1.2→0.1.3 升级、真实录音、200% 字体/深色/横屏、外接键盘、权限四态；新增 `docs/device_matrix.md` 与 `scripts/run_device_matrix.sh`。**未覆盖**：其他机型与 Android 26/30/35+；长稳用例会触发系统重启、转屏新增用例挂起，均列为待查 |
 | 4-3 | CER/WER 与 P95 延迟 | 完成 | 合成语料 90 条（zh/en/mixed 各 30），基线 zh CER 1.66% / en WER 2.08% / mixed CER 2.74%，RTF p95 ≤ 0.10，记录于 `docs/benchmarks/asr_accuracy_2026-11-22.md`；`AsrAccuracyEvalTest` 加回归门槛（10% / 10% / 12%）。**局限**：语料是 TTS 合成，缺口音、口吃、噪声与远场，不能替代真人验收 |
 | 4-4 | G07 签字 / NOTICE / SBOM | 未开始 | 模型 license 仍 PENDING，待法务 |
 
