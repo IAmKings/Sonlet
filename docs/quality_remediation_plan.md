@@ -19,7 +19,7 @@
 | 3 | 补齐无障碍和键盘反馈 | 完成 | `c13f782`：分段选中态加勾选标记、按住模式补 TalkBack 等同动作、Snackbar 避让导航栏与软键盘；`b5fbd0b` 补外接键盘回车/空格切换 + 仪器用例 |
 | 4-1 | 单测 / Python / 双变体 Lint / actionlint / 签名构建 | 完成 | `ci.yml` 跑 `lintDebug lintRelease` 与 `actionlint`；签名构建在 Release Candidate 工作流内 |
 | 4-2 | 真机验收 | 部分 | 升级路径（`ba02dc3` 记录 0.1.2→0.1.3 实测）、真实录音、安装启动有证据；缺断网冷启动、取消/切后台/权限恢复成组记录、目标机型矩阵 |
-| 4-3 | CER/WER 与 P95 延迟 | 未开始 | `app/src/androidTest/assets/corpus/manifest.csv` 只有注释模板、无 wav，评测用例 `assumeTrue` 自动跳过 |
+| 4-3 | CER/WER 与 P95 延迟 | 完成 | 合成语料 90 条（zh/en/mixed 各 30），基线 zh CER 1.66% / en WER 2.08% / mixed CER 2.74%，RTF p95 ≤ 0.10，记录于 `docs/benchmarks/asr_accuracy_2026-11-22.md`；`AsrAccuracyEvalTest` 加回归门槛（10% / 10% / 12%）。**局限**：语料是 TTS 合成，缺口音、口吃、噪声与远场，不能替代真人验收 |
 | 4-4 | G07 签字 / NOTICE / SBOM | 未开始 | 模型 license 仍 PENDING，待法务 |
 
 
