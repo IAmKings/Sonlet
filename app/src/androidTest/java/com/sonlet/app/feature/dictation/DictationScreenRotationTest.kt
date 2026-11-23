@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sonlet.app.dictation.core.DictationStyle
+import com.sonlet.app.dictation.core.DraftStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -33,9 +34,19 @@ class DictationScreenRotationTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
 
+    /** 每个用例一份内存草稿:真 SharedPreferences 会把上一个用例的正文带进下一个 */
+    private class MemoryDraftStore : DraftStore {
+        private var draft: DraftStore.Draft? = null
+        override fun load(): DraftStore.Draft? = draft
+        override fun save(draft: DraftStore.Draft) { this.draft = draft }
+        override fun clear() { draft = null }
+    }
+
+    private fun viewModel() = DictationViewModel(app, MemoryDraftStore())
+
     @Test
     fun draftSurvivesConfigurationChangeKeepingViewModel() {
-        val viewModel = DictationViewModel(app)
+        val viewModel = viewModel()
         val restoration = StateRestorationTester(rule)
         restoration.setContent { DictationScreen(viewModel) }
         rule.waitForIdle()
@@ -54,20 +65,23 @@ class DictationScreenRotationTest {
 
     @Test
     fun draftIsDroppedWhenViewModelIsGone() {
-        val first = DictationViewModel(app)
-        val second = DictationViewModel(app)
+        // 关掉自动推进:真实 ViewModel 会停在 PREPARING,进度动画让 waitForIdle 永不返回
+        rule.mainClock.autoAdvance = false
+
+        val first = viewModel()
+        val second = viewModel()
         var active by mutableStateOf(first)
-        val restoration = StateRestorationTester(rule)
-        restoration.setContent { DictationScreen(active) }
-        rule.waitForIdle()
+
+        rule.setContent { DictationScreen(active) }
+        rule.mainClock.advanceTimeByFrame()
 
         rule.onNode(hasSetTextAction()).performTextInput("机密草稿")
-        rule.waitForIdle()
+        rule.mainClock.advanceTimeByFrame()
         assertEquals("机密草稿", first.editorValue.text)
 
         // 模拟进程被杀:VM 换成全新实例,只有 saved state 能救回草稿——但它不该在
         rule.runOnIdle { active = second }
-        rule.waitForIdle()
+        rule.mainClock.advanceTimeByFrame()
 
         assertFalse(
             "正文不得随 saved state 复活",
@@ -78,7 +92,7 @@ class DictationScreenRotationTest {
 
     @Test
     fun styleSelectionIsOwnedByViewModel() {
-        val viewModel = DictationViewModel(app)
+        val viewModel = viewModel()
         val restoration = StateRestorationTester(rule)
         restoration.setContent { DictationScreen(viewModel) }
         rule.waitForIdle()
