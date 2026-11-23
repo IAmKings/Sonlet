@@ -41,6 +41,8 @@ row() { printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$SUMMARY"
 # 返回 0=跑完, 124=墙钟超时, 125=停滞
 run_am() {
   local log=$1; shift
+  # 停滞阈值;0=不判停滞(单个长用例整场只报一次 test 标记,靠标记判活会误杀)
+  local stall_idle=${STALL_IDLE:-150}
   : > "$log"
   adb -s "$SERIAL" shell am instrument -w -r "$@" "$RUNNER" > "$log" 2>&1 &
   local pid=$! waited=0 idle=0 marks=0 now
@@ -49,7 +51,7 @@ run_am() {
     now=$(grep -c "INSTRUMENTATION_STATUS: test=" "$log" 2>/dev/null || true)
     now=${now:-0}
     if (( now > marks )); then marks=$now; idle=0; else idle=$((idle + 5)); fi
-    if (( idle >= 150 )); then
+    if (( stall_idle > 0 && idle >= stall_idle )); then
       kill "$pid" 2>/dev/null
       adb -s "$SERIAL" shell am force-stop "$APP" >/dev/null 2>&1 || true
       return 125
@@ -102,7 +104,7 @@ for SERIAL in "${DEVICES[@]}"; do
   for CLS in "${ISOLATED[@]}"; do EXCLUDES+=(-e notClass "$CLS"); done
   run_am "$LOG" "${EXCLUDES[@]}" || RESULT_CODE=$?
   for CLS in "${ISOLATED[@]}"; do
-    run_am "$LOG.$CLS" -e class "$CLS" || RESULT_CODE=$?
+    STALL_IDLE=0 run_am "$LOG.$CLS" -e class "$CLS" || RESULT_CODE=$?
     cat "$LOG.$CLS" >> "$LOG"
   done
   TIME=$(( $(date +%s) - START ))
@@ -121,7 +123,10 @@ for SERIAL in "${DEVICES[@]}"; do
     continue
   fi
 
-  TESTS=$(sed -n 's/.*Tests run: \([0-9]*\).*/\1/p' "$LOG" | awk '{s+=$1} END{print s+0}')
+  # 全绿时 JUnit 只打 "OK (N tests)",不打印 "Tests run: N, Failures: M"
+  OK_TESTS=$(sed -n 's/^OK (\([0-9]*\) test.*/\1/p' "$LOG" | awk '{s+=$1} END{print s+0}')
+  RAN=$(sed -n 's/.*Tests run: \([0-9]*\).*/\1/p' "$LOG" | awk '{s+=$1} END{print s+0}')
+  TESTS=$(( OK_TESTS + RAN ))
   FAIL=$(sed -n 's/.*Failures: \([0-9]*\).*/\1/p' "$LOG" | awk '{s+=$1} END{print s+0}')
   if (( FAIL == 0 )) && [[ $TESTS -gt 0 ]]; then RESULT=pass; else RESULT=fail; fi
   row "$SERIAL" "$MODEL" "$ANDROID" "$ABI" "$EXECUTION" "$UID_" "$RESULT" - "$TESTS" "$FAIL" "$TIME"
