@@ -51,12 +51,17 @@
 
 因此每次重装后，凡是要起 Activity 的用例（手势、转屏、权限）都跑不了，只有无 UI 的用例能过。换非 MIUI 设备可避免；在该设备上每次重装后都要手动重新授权。
 
+脚本对此有两条防线：跑全量前先用一个 Activity 用例做探针（约 90 秒），起不来就直接记 `background_start_denied` 并跳过，不再白跑一轮；每个批次还有「用例标记 150 秒不增长即中止」的停滞判定。实测在权限失效的设备上，整轮 156 秒就返回 `blocked / background_start_denied`，而不是挂半小时。
+
 ## 4. 补齐矩阵的操作方式
 
 ```bash
 ./gradlew assembleDebug assembleDebugAndroidTest
-scripts/run_device_matrix.sh build/device-matrix   # 对每台已连接设备跑一遍并汇总
+scripts/run_device_matrix.sh build/device-matrix              # 卸载重装后再测(会重置 MIUI 权限)
+scripts/run_device_matrix.sh build/device-matrix 1800 --in-place   # 就地测,不动安装状态
 ```
+
+**MIUI 设备建议用 `--in-place`**：重装会换 appId，`后台弹出界面` 权限随之失效，UI 用例必然挂。就地模式只确认包在，不碰安装状态。
 
 脚本会逐台设备卸载重装、跑全量仪器测试、把型号/系统/ABI/结果/耗时写进 `summary.tsv`。新增设备只要 `adb connect` 后重跑，无需改代码。
 
