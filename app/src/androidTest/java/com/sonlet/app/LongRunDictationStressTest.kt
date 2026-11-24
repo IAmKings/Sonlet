@@ -4,7 +4,7 @@ import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.rule.GrantPermissionRule
+import com.sonlet.app.testing.AudioPermissionRule
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.sonlet.app.asr.sherpa.ModelInstallStatus
 import com.sonlet.app.asr.sherpa.ModelRepository
@@ -45,8 +45,7 @@ import org.junit.runner.RunWith
 class LongRunDictationStressTest {
 
     @get:Rule
-    val permissionRule: GrantPermissionRule =
-        GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+    val permissionRule: AudioPermissionRule = AudioPermissionRule()
 
     companion object {
         const val TOTAL_ROUNDS = 100
