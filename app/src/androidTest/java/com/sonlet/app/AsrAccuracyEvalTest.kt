@@ -2,6 +2,7 @@ package com.sonlet.app
 
 import android.content.Context
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.k2fsa.sherpa.onnx.WaveReader
@@ -42,6 +43,9 @@ class AsrAccuracyEvalTest {
 
     @Test
     fun evaluateCorpusIfPresent(): Unit = runBlocking {
+        // 保持一个可见窗口:ColorOS 的 OsenseKillAction 会把没有窗口的进程当"可回收",
+        // 连 oom:FGS 也护不住,评测跑到一半进程就被杀。
+        ActivityScenario.launch(MainActivity::class.java).use {
         val files = testContext.assets.list(CORPUS_DIR) ?: emptyArray()
         val manifestPresent = files.contains(MANIFEST)
         assumeTrue("corpus/manifest.csv 不存在,跳过评测(放置语料后运行)", manifestPresent)
@@ -108,6 +112,7 @@ class AsrAccuracyEvalTest {
             violations.isEmpty(),
         )
         Log.i(TAG, "accuracy_done total=${results.size}")
+        }
     }
 
     private data class Entry(

@@ -26,8 +26,8 @@
 | 权限：首次授予、拒绝、永久拒绝、设置页恢复 | 通过 | `MicPermissionStateTest` 4 例 + 人工复核 |
 | 完全离线 | 通过（静态） | APK 无 `android.permission.INTERNET`（`dumpsys package` 无该权限行） |
 | 系统版本 26 / 30 | **未覆盖** | 手上最低是 API 34 |
-| 系统版本 35+（Android 17 / API 37） | 部分通过 | PJZ110：安装、冷启动 354ms、界面、UI 用例、模型推理均通过；重负载用例被厂商清理器杀，见 §3.4 |
-| 其他 SoC / 厂商 ROM | 部分通过 | 已覆盖高通 + ColorOS（PJZ110）；联发科未覆盖 |
+| 系统版本 35+（Android 17 / API 37） | 通过 | PJZ110：安装、冷启动 354ms、界面、全量仪器 **42 项 `OK (42 tests)`**，见 §3.4 |
+| 其他 SoC / 厂商 ROM | 部分通过 | 已覆盖高通 + ColorOS（PJZ110，42/42）；联发科未覆盖 |
 | 长稳（100 次会话） | 通过（单独运行） | 单独派发 `OK (1 test)`；与评测同进程会崩，见 §3.1 |
 | 转屏用例（3 例） | 通过 | 修复用例本身的两个缺陷后 `OK (3 tests)`，见 §3.2 |
 | 全量仪器套件（42 项，就地跑） | 通过 | 2026-11-24 `--in-place` 一轮：41 + 1，0 失败，462 秒 |
@@ -55,6 +55,21 @@
 因此每次重装后，凡是要起 Activity 的用例（手势、转屏、权限）都跑不了，只有无 UI 的用例能过。换非 MIUI 设备可避免；在该设备上每次重装后都要手动重新授权。
 
 脚本对此有两条防线：跑全量前先用一个 Activity 用例做探针（约 90 秒），起不来就直接记 `background_start_denied` 并跳过，不再白跑一轮；每个批次还有「用例标记 150 秒不增长即中止」的停滞判定。实测在权限失效的设备上，整轮 156 秒就返回 `blocked / background_start_denied`，而不是挂半小时。
+
+### 3.4 ColorOS 会回收没有窗口的 instrumentation 进程（已修复）
+
+在 PJZ110（Android 17 / ColorOS）上跑 `AsrAccuracyEvalTest` 与 `LongRunDictationStressTest`，进程在模型加载后被系统杀掉，`am instrument` 只报 `shortMsg=Process crashed`，没有 Java 异常也没有 native tombstone：
+
+```
+OsenseKillAction: KillAction: Kill ProcessInfo{...:com.sonlet.app oom:FGS/102/0/instrumentation mem:0/403/7} : Cached(nirvana)
+ActivityManager: Process com.sonlet.app (pid 5271) has died: fg  FGS
+```
+
+判别依据不是内存占用——Doze 白名单、活跃桶、亮屏、周期性触摸都试过，无效——而是**窗口可见性**。这两个用例只做引擎推理、不启动 Activity，进程没有可见窗口，ColorOS 据此判为可回收，`oom:FGS` 与 instrumentation 标记都护不住。UI 用例自带窗口，所以从未受影响。
+
+修法：用例在推理前 `ActivityScenario.launch(MainActivity::class.java)` 挂一个可见窗口，结束后关闭。只动测试，业务代码不变；代价是重负载用例会顺带把首页渲染一遍。修复后两例各自 `OK (1 test)`，全量 `OK (42 tests)`。
+
+Android 17 另需两处依赖侧适配：espresso 3.6.1 会调用已移除的 `android.hardware.input.inputmanager.getInstance()`（升到 3.7.0）；shell 不再持有 `GRANT_RUNTIME_PERMISSIONS`，权限改由 `AudioPermissionRule` 尽力授予并在失败时记账，首次运行前需在界面上手动允许一次麦克风。
 
 ## 4. 补齐矩阵的操作方式
 

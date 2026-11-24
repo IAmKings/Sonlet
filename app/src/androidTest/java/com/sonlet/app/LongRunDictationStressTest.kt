@@ -2,6 +2,7 @@ package com.sonlet.app
 
 import android.os.Debug
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sonlet.app.testing.AudioPermissionRule
@@ -54,6 +55,8 @@ class LongRunDictationStressTest {
 
     @Test
     fun hundredSessionsWithoutResourceLeak(): Unit = runBlocking {
+        // 同 AsrAccuracyEvalTest:ColorOS 会把没有窗口的进程当"可回收"杀掉,oom:FGS 也不护。
+        ActivityScenario.launch(MainActivity::class.java).use {
         val context = InstrumentationRegistry.getInstrumentation()
             .targetContext.applicationContext
         val repo = ModelRepository(context.assets)
@@ -128,6 +131,7 @@ class LongRunDictationStressTest {
                 segmenter.close()
                 scope.cancel()
             }
+        }
         }
     }
 
