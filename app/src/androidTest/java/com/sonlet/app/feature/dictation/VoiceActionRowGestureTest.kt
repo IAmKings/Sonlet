@@ -11,8 +11,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sonlet.app.dictation.core.DictationPhase
@@ -20,6 +26,7 @@ import com.sonlet.app.dictation.core.DictationUiState
 import com.sonlet.app.ui.theme.SonletTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -153,6 +160,24 @@ class VoiceActionRowGestureTest {
         )
     }
 
+    @Test
+    fun holdButtonExposesEquivalentAccessibilityAction() {
+        val phase = mutableStateOf(DictationPhase.READY)
+        val events = mutableListOf<String>()
+        setRow(phase, events, advanceOnStart = false)
+
+        val custom = compose.onNodeWithTag(HOLD_TO_TALK_TEST_TAG)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsActions.CustomActions)
+        assertNotNull("按住按钮必须给 TalkBack/外键提供等效动作", custom)
+        assertEquals(1, custom!!.size)
+
+        custom.first().action()
+        compose.waitForIdle()
+        assertEquals(listOf(EVENT_START), events)
+    }
+
     private fun setRow(
         phase: MutableState<DictationPhase>,
         events: MutableList<String>,
@@ -187,5 +212,41 @@ class VoiceActionRowGestureTest {
         const val EVENT_START = "start"
         const val EVENT_FINISH = "finish"
         const val EVENT_CANCEL = "cancel"
+    }
+
+    @Test
+    fun holdButtonTogglesFromKeyboard() {
+        val phase = mutableStateOf(DictationPhase.READY)
+        val events = mutableListOf<String>()
+        compose.setContent {
+            SonletTheme {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    ActionRow(
+                        state = DictationUiState(phase = phase.value),
+                        holdMode = true,
+                        onStart = { error("按住模式的键盘操作不得走点击模式回调") },
+                        onHoldStart = {
+                            events += EVENT_START
+                            phase.value = DictationPhase.RECORDING
+                        },
+                        onFinish = { events += EVENT_FINISH },
+                        onCancel = { events += EVENT_CANCEL },
+                        onRetryModel = {},
+                        onDismissError = {},
+                        onOpenSettings = {},
+                    )
+                }
+            }
+        }
+
+        val button = compose.onNodeWithTag(HOLD_TO_TALK_TEST_TAG)
+        button.requestFocus()
+        button.performKeyInput { pressKey(Key.Spacebar) }
+        compose.waitForIdle()
+        assertEquals("空格应开始录音", listOf(EVENT_START), events)
+
+        button.performKeyInput { pressKey(Key.Spacebar) }
+        compose.waitForIdle()
+        assertEquals("再次空格应结束并转写", listOf(EVENT_START, EVENT_FINISH), events)
     }
 }

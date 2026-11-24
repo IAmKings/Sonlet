@@ -1,8 +1,37 @@
 # Sonlet 代码质量整改计划
 
-**状态**　规划草案，2026-11-21。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.2](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.2)。
+**状态**　执行中，2026-11-24：第 1、2、3 节完成；第 4 节除 4-4（等法务）外完成。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.4](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.4)。
 
 本轮目标是恢复可核验的发布流程，解决听写结果丢失和录音停不下来的问题，并补齐正文隐私与界面验收。既有性能目标、待验证项和受限内测批准沿用 [PRD](Hex_Android_Offline_ASR_PRD_v1.0.md)、[发布决策](release_decision.md)与[发布检查清单](release_checklist.md)。[上次候选包记录](release_readiness_plan.md)仅对应其中记录的文件摘要。
+
+## 完成情况（2026-11-22）
+
+| 节 | 工作 | 状态 | 落地 |
+|---|---|---|---|
+| 1 | 挡住未批准的公开发布 | 完成 | `719bf10`（PR #29）：候选构建只产出 artifact，`publish.yml` 需 `environment: release` 人工批准 + `approved_by` + 精确 SHA-256，且校验 run 的 headSha 与 tag 指向同一提交；v0.1.3 实跑（Publish run 44879687970） |
+| 1 | 保护已发布附件 | 完成 | 同上：同名 Release 先比附件摘要，一致即成功、不一致即失败，不再覆盖上传 |
+| 1 | 新版本必须高于已公开版本 | 完成 | 同上：`--published-version-code` + `--list-published`，`tests/test_release_apk.py` 覆盖低于 / 等于 / 高于三种情况 |
+| 2 | 解耦结果与提示交付 | 完成 | `f09ef3b`（PR #30）：结果走 `Channel(UNLIMITED)`，消费者确认后才计入；`ResultDeliveryTest` 在提示停滞下 100 次转写全部恰好插入一次 |
+| 2 | 落实 30 秒录音截止 | 完成 | `372ad52` + `f5c139f`：截止改用单调时钟，读循环与状态机都按"连续 30 秒没有新样本"判定。清理超 `DISPOSE_TIMEOUT_MS` 时静默放行，见下方设计决定 |
+| 2 | 录完后的路由变化保留转写 | 完成 | `372ad52`：路由失效只在 STARTING/RECORDING 中止，TRANSCRIBING 不取消 |
+| 3 | 明确草稿生命周期 | 完成 | `e456e0b`：正文不进 saved state；`7798997`：改为应用私有存储 + 防抖落盘，杀进程可恢复。隐私约定已同步（PRD §14）与验收条目（`acceptance_guide.md` 2.4–2.6），`beb9e56` |
+| 3 | 修正英文分段句界 | 完成 | `c13f782`（PR #33）：`Hello.` + `World` → `Hello. World`，中文全角、小数与标识符一并覆盖 |
+| 3 | 补齐无障碍和键盘反馈 | 完成 | `c13f782`：分段选中态加勾选标记、按住模式补 TalkBack 等同动作、Snackbar 避让导航栏与软键盘；`b5fbd0b` 补外接键盘回车/空格切换 + 仪器用例 |
+| 4-1 | 单测 / Python / 双变体 Lint / actionlint / 签名构建 | 完成 | `ci.yml` 跑 `lintDebug lintRelease` 与 `actionlint`；签名构建在 Release Candidate 工作流内 |
+| 4-2 | 真机验收 | 完成 | 两台各一轮全量 `OK (42 tests)`：Redmi 23078PND5G（MediaTek MT6985 / Android 14 / HyperOS）、OnePlus PJZ110（Qualcomm SM8750 / Android 17 / ColorOS）。覆盖安装冷启、0.1.2→0.1.3 升级、真实录音、200% 字体/深色/横屏、外接键盘、权限四态、长稳与转屏；证据见 `docs/device_matrix.md`，跑测见 `scripts/run_device_matrix.sh`（`a159b37`、`f31c6b5`、`68fac25`、`0b9e059`）。**未覆盖**：Android 26–33、其他厂商 ROM |
+| 4-3 | CER/WER 与 P95 延迟 | 完成 | 合成语料 90 条（zh/en/mixed 各 30），基线 zh CER 1.66% / en WER 2.08% / mixed CER 2.74%，RTF p95 ≤ 0.10，记录于 `docs/benchmarks/asr_accuracy_2026-11-22.md`；`AsrAccuracyEvalTest` 加回归门槛（10% / 10% / 12%）。**局限**：语料是 TTS 合成，缺口音、口吃、噪声与远场，不能替代真人验收 |
+| 4-4 | G07 签字 / NOTICE / SBOM | 未开始 | 模型 license 仍 PENDING，待法务 |
+
+
+### 设计决定：清理超预算静默放行
+
+`PcmAudioRecorder.dispose()` 用 `withTimeoutOrNull(DISPOSE_TIMEOUT_MS) { shutdown() }` 包住停机，超时后继续执行 `scope.cancel()`。这**不是**遗漏，是有意的取舍：
+
+- 超时意味着 `readLoop` 卡在 `record.read()` 里没有返回。此时 `scope` 已取消、`AudioRecord` 的引用随 job 一起被丢弃，麦克风归属由系统在进程内参数重建后回收，App 侧没有任何可以"修复"它的动作。
+- 给用户报一个"录音设备没释放"的错误，既不指向可执行的下一步，又会在下次进入页面时留下一个无法消除的提示。
+- 真正需要保证的是"不会挂着旧会话继续交付"和"新录音不被旧的持久占用"：前者由会话代际（`SessionGenerationGuard`）保证，后者由 `beginSession()` 拒绝并发会话保证。
+
+因此该路径保持静默。若将来出现设备侧确有麦克风未释放的可复现案例，再补"重启应用"级别的引导，而不是新增错误码。
 
 ## 处理顺序
 
@@ -30,7 +59,7 @@
 | 优先级 | 工作 | 实施与验收 |
 |---|---|---|
 | P1 | 解耦结果与提示交付 | 编辑器响应最终结果，Snackbar 使用独立的非阻塞提示通路。结果实际接收后再确认交付。在提示消费者停滞时完成 100 次模拟转写，100 条均恰好插入一次。补取消、重复结果和用户继续编辑的回归。审查时同场景仅收到 81 条。 |
-| P1 | 落实 30 秒录音截止 | 以单调时钟计算录音截止时间，PCM 样本上限继续用于限制缓冲。覆盖采集持续零读、读取阻塞、用户取消与超时同时发生。30 秒触发停录，清理预算沿用现有 `DISPOSE_TIMEOUT_MS` 的 2 秒。超出预算时界面给出错误，麦克风归属未释放前保持禁用新录音。 |
+| P1 | 落实 30 秒录音截止 | 以单调时钟计算录音截止时间，PCM 样本上限继续用于限制缓冲。覆盖采集持续零读、读取阻塞、用户取消与超时同时发生。30 秒触发停录，清理预算沿用现有 `DISPOSE_TIMEOUT_MS` 的 2 秒。超出预算时静默放行：界面不给错误、不上报新错误码（理由见「设计决定：清理超预算静默放行」）。 |
 | P2 | 录完后的路由变化保留转写 | 只在启动和正在采集时因路由失效中止。录完进入转写后移除设备，已有 PCM 应继续转写并交付一次。显式取消和切后台仍保证零交付。 |
 
 涉及 [DictationController](../app/src/main/java/com/sonlet/app/dictation/core/DictationController.kt)、[PcmAudioRecorder](../app/src/main/java/com/sonlet/app/audio/capture/PcmAudioRecorder.kt)、[DictationViewModel](../app/src/main/java/com/sonlet/app/feature/dictation/DictationViewModel.kt)及状态机、采集生命周期和长稳测试。先用现有 Fake 在 JVM 固定边界，再用真机验证真实录音资源和路由变化。对应 AC-P0-007、008、009、011、014、015、018。

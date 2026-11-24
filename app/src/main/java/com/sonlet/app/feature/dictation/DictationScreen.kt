@@ -98,17 +98,12 @@ fun DictationScreen(viewModel: DictationViewModel) {
     val original by viewModel.latestOriginal.collectAsStateWithLifecycle()
     var showOriginal by remember { mutableStateOf(false) }
 
-    // 编辑器状态:以组合内为最新真值,写回 VM 供交付时使用(CC-04)。
-    // 用 rememberSaveable 保存文本与光标:转屏/深色切换/进程重建都不得丢稿。
-    var editorValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(""))
-    }
+    // 编辑器状态:组合内即时渲染,真值同步到 VM 供交付使用(CC-04)。
+    // 刻意不用 rememberSaveable:听写正文属敏感内容,不得进入 saved state(Bundle/系统快照)。
+    // 转屏/深色切换靠 VM 存活保留草稿;进程被杀即丢弃,这是隐私取舍而非缺陷。
+    var editorValue by remember(viewModel) { mutableStateOf(viewModel.editorValue) }
     LaunchedEffect(viewModel) {
         viewModel.onEditorChanged = { editorValue = it }
-    }
-    // 首帧把恢复出来的文本回灌 VM(进程重建时 VM 是全新的空值),之后由 onValueChange 持续同步
-    LaunchedEffect(Unit) {
-        viewModel.updateEditor(editorValue)
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -255,7 +250,10 @@ fun DictationScreen(viewModel: DictationViewModel) {
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .imePadding(),
         ) { data ->
             Snackbar(
                 snackbarData = data,
@@ -698,6 +696,16 @@ internal fun formatTimer(durationMs: Long, limitMs: Long): String {
 }
 
 /** P1 交互模式切换:仅 READY/RECORDING 展示;随时可切,行为对当前会话安全 */
+/** 选中标记:除了填充色再给一个勾,色觉障碍与高对比度下也能分辨(DESIGN.md §3) */
+@Composable
+private fun SegmentCheck() {
+    Icon(
+        imageVector = SonletIcons.Check,
+        contentDescription = null,
+        modifier = Modifier.size(18.dp),
+    )
+}
+
 @Composable
 private fun ModeToggleRow(
     state: DictationUiState,
@@ -731,7 +739,7 @@ private fun ModeToggleRow(
             onClick = { onHoldModeChange(false) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             colors = segColors,
-            icon = {},
+            icon = { if (!holdMode) SegmentCheck() },
         ) {
             Text(
                 stringResource(R.string.mode_toggle_tap),
@@ -743,7 +751,7 @@ private fun ModeToggleRow(
             onClick = { onHoldModeChange(true) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             colors = segColors,
-            icon = {},
+            icon = { if (holdMode) SegmentCheck() },
         ) {
             Text(
                 stringResource(R.string.mode_toggle_hold),
@@ -781,6 +789,29 @@ object SonletIcons {
                     horizontalLineToRelative(2f)
                     verticalLineToRelative(-2.06f)
                     arcTo(9f, 9f, 0f, false, false, 21f, 11f)
+                    close()
+                },
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
+    }
+
+    val Check: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "SonletCheck",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            addPath(
+                pathData = androidx.compose.ui.graphics.vector.PathData {
+                    moveTo(9f, 16.17f)
+                    lineTo(4.83f, 12f)
+                    lineTo(3.41f, 13.41f)
+                    lineTo(9f, 19f)
+                    lineTo(21f, 7f)
+                    lineTo(19.59f, 5.59f)
                     close()
                 },
                 fill = SolidColor(Color.Black),

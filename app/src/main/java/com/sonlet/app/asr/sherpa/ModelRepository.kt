@@ -2,6 +2,7 @@ package com.sonlet.app.asr.sherpa
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.util.Log
 import com.sonlet.app.asr.api.AsrEngineException
 import com.sonlet.app.asr.api.AsrErrorCode
 import com.sonlet.app.asr.api.AsrModelDescriptor
@@ -63,13 +64,27 @@ class ModelRepository(
     }
 
     private fun isCachedVerified(): Boolean {
-        val key = verificationKey ?: return false
-        return verificationCache?.isVerified(key) == true
+        val key = verificationKey ?: run {
+            Log.d(TAG, "verify: 未配置缓存 key,本次完整校验")
+            return false
+        }
+        val cached = verificationCache?.isVerified(key) == true
+        // 升级后 lastUpdateTime 变化会让 key 失配,这里会打出一条未命中,用于核对
+        // "升级只重算一次"这一行为。
+        Log.d(TAG, if (cached) "verify: 命中缓存,跳过摘要 key=$key" else "verify: 未命中缓存,重算摘要 key=$key")
+        return cached
     }
 
     private fun verifyDigests(fast: ModelInstallStatus.Ready): ModelInstallStatus {
+        val startedAt = System.currentTimeMillis()
         val modelOk = runCatching { sha256Of(MODEL_ASSET) == MODEL_SHA256 }.getOrDefault(false)
         val tokensOk = runCatching { sha256Of(TOKENS_ASSET) == TOKENS_SHA256 }.getOrDefault(false)
+        val elapsed = System.currentTimeMillis() - startedAt
+        Log.d(
+            TAG,
+            "verify: 摘要完成 ${elapsed}ms model=${fast.modelBytes}B tokens=${fast.tokensBytes}B " +
+                "modelOk=$modelOk tokensOk=$tokensOk",
+        )
         if (!modelOk || !tokensOk) return ModelInstallStatus.Corrupted
         val key = verificationKey
         if (key != null) verificationCache?.markVerified(key)
@@ -102,6 +117,7 @@ class ModelRepository(
     }
 
     companion object {
+        const val TAG = "SonletModel"
         const val MODEL_ASSET = "sensevoice/model.int8.onnx"
         const val TOKENS_ASSET = "sensevoice/tokens.txt"
 

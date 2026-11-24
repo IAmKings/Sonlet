@@ -3,6 +3,7 @@ package com.sonlet.app.feature.dictation
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,6 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
@@ -38,7 +44,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sonlet.app.R
@@ -126,6 +134,8 @@ fun HoldToTalkButton(
             R.string.a11y_voice_button_start
         },
     )
+    val startAction = stringResource(R.string.a11y_voice_button_start)
+    val finishAction = stringResource(R.string.a11y_voice_button_finish)
     val containerColor = if (interactive) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -144,6 +154,25 @@ fun HoldToTalkButton(
             .clip(RoundedCornerShape(12.dp))
             .background(containerColor)
             .testTag(HOLD_TO_TALK_TEST_TAG)
+            // 外接键盘/键盘导航:无法"按住",改成空格或回车切换(READY 开始,RECORDING 结束)。
+            .focusable(enabled = interactive)
+            .onKeyEvent { event ->
+                if (!interactive || event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                if (event.key != Key.Spacebar && event.key != Key.Enter) return@onKeyEvent false
+                when (state.phase) {
+                    DictationPhase.READY -> {
+                        pressed.value = true
+                        onPressStart()
+                        true
+                    }
+                    DictationPhase.RECORDING -> {
+                        pressed.value = false
+                        onPressRelease()
+                        true
+                    }
+                    else -> false
+                }
+            }
             .then(
                 if (interactive) {
                     Modifier.voiceHoldGesture(
@@ -165,7 +194,20 @@ fun HoldToTalkButton(
                     Modifier
                 },
             )
-            .semantics { contentDescription = a11y },
+            .semantics {
+                contentDescription = a11y
+                if (interactive) {
+                    // TalkBack/外接键盘无法"按住":提供一个等效的单次动作
+                    customActions = listOf(
+                        CustomAccessibilityAction(
+                            if (state.phase == DictationPhase.READY) startAction else finishAction,
+                        ) {
+                            if (state.phase == DictationPhase.READY) onPressStart() else onPressRelease()
+                            true
+                        },
+                    )
+                }
+            },
     ) {
         Text(
             text = label,

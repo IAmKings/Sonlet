@@ -2,6 +2,7 @@ package com.sonlet.app
 
 import android.content.Context
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.k2fsa.sherpa.onnx.WaveReader
@@ -29,6 +30,8 @@ import kotlin.math.ceil
  *     -Pandroid.testInstrumentationRunnerArguments.class=com.sonlet.app.AsrAccuracyEvalTest
  * 结果:logcat `accuracy_result` 行 + 设备 files/accuracy_results.csv,adb pull 归档至 docs/benchmarks/。
  * 语料缺失时测试自动跳过,不影响常规回归。
+ * 门槛:zh CER ≤ 10%、en WER ≤ 10%、mixed CER ≤ 12%(实测基线见 docs/benchmarks/),
+ * 超限即失败并打印该语言最差的 5 条,避免"跑完没人看日志"。
  */
 @RunWith(AndroidJUnit4::class)
 class AsrAccuracyEvalTest {
@@ -40,6 +43,9 @@ class AsrAccuracyEvalTest {
 
     @Test
     fun evaluateCorpusIfPresent(): Unit = runBlocking {
+        // 保持一个可见窗口:ColorOS 的 OsenseKillAction 会把没有窗口的进程当"可回收",
+        // 连 oom:FGS 也护不住,评测跑到一半进程就被杀。
+        ActivityScenario.launch(MainActivity::class.java).use {
         val files = testContext.assets.list(CORPUS_DIR) ?: emptyArray()
         val manifestPresent = files.contains(MANIFEST)
         assumeTrue("corpus/manifest.csv 不存在,跳过评测(放置语料后运行)", manifestPresent)
@@ -89,7 +95,24 @@ class AsrAccuracyEvalTest {
                         .format(Locale.ROOT, elapsed.percentile(0.50), elapsed.percentile(0.95)),
             )
         }
+        val violations = byLang.mapNotNull { (lang, group) ->
+            val limit = THRESHOLDS.getValue(lang)
+            val avg = group.map { it.metric }.average()
+            if (avg <= limit) {
+                null
+            } else {
+                val worst = group.sortedByDescending { it.metric }.take(5)
+                    .joinToString("; ") { "#${it.sampleId}=%.3f".format(Locale.ROOT, it.metric) }
+                "%s 平均 %.4f 超过门槛 %.2f，最差 5 条: %s"
+                    .format(Locale.ROOT, if (lang == "en") "WER" else "CER", avg, limit, worst)
+            }
+        }
+        assertTrue(
+            "准确率低于回归门槛:\n" + violations.joinToString("\n"),
+            violations.isEmpty(),
+        )
         Log.i(TAG, "accuracy_done total=${results.size}")
+        }
     }
 
     private data class Entry(
@@ -142,6 +165,7 @@ class AsrAccuracyEvalTest {
 
     private companion object {
         const val TAG = "SonletEval"
+        val THRESHOLDS = mapOf("zh" to 0.10, "en" to 0.10, "mixed" to 0.12)
         const val CORPUS_DIR = "corpus"
         const val MANIFEST = "manifest.csv"
         val LANGUAGES = setOf("zh", "en", "mixed")

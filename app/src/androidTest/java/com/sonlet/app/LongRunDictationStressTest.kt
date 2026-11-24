@@ -2,9 +2,10 @@ package com.sonlet.app
 
 import android.os.Debug
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.rule.GrantPermissionRule
+import com.sonlet.app.testing.AudioPermissionRule
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.sonlet.app.asr.sherpa.ModelInstallStatus
 import com.sonlet.app.asr.sherpa.ModelRepository
@@ -45,8 +46,7 @@ import org.junit.runner.RunWith
 class LongRunDictationStressTest {
 
     @get:Rule
-    val permissionRule: GrantPermissionRule =
-        GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+    val permissionRule: AudioPermissionRule = AudioPermissionRule()
 
     companion object {
         const val TOTAL_ROUNDS = 100
@@ -55,6 +55,8 @@ class LongRunDictationStressTest {
 
     @Test
     fun hundredSessionsWithoutResourceLeak(): Unit = runBlocking {
+        // 同 AsrAccuracyEvalTest:ColorOS 会把没有窗口的进程当"可回收"杀掉,oom:FGS 也不护。
+        ActivityScenario.launch(MainActivity::class.java).use {
         val context = InstrumentationRegistry.getInstrumentation()
             .targetContext.applicationContext
         val repo = ModelRepository(context.assets)
@@ -87,9 +89,8 @@ class LongRunDictationStressTest {
             scope = scope,
         )
         scope.launch {
-            controller.events.collect {
-                if (it is DictationEvent.TranscriptReady) delivered.add(it.sessionId)
-            }
+            // 正文走无损通道:轻提示事件允许丢弃,不能用它统计交付
+            controller.results.collect { delivered.add(it.sessionId) }
         }
         try {
             controller.start()
@@ -130,6 +131,7 @@ class LongRunDictationStressTest {
                 segmenter.close()
                 scope.cancel()
             }
+        }
         }
     }
 

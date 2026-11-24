@@ -9,7 +9,7 @@
 |---|---|---|---|---|---|
 | sherpa-onnx(Kotlin API + JNI `.so`) | v2.0.1 | Apache-2.0 | `docs/licenses/sherpa-onnx-LICENSE` | 保留 LICENSE/NOTICE 与版权声明;注明修改 | 原文已核,签字 PENDING |
 | ONNX Runtime(`libonnxruntime.so`) | 随 sherpa-onnx v2.0.1 | MIT | `docs/licenses/onnxruntime-LICENSE` | 保留版权与许可声明 | 原文已核,签字 PENDING |
-| SenseVoice Small INT8 模型权重 | 2024-07-17 | MIT(经 FunASR 仓库 LICENSE) | `docs/licenses/funasr-LICENSE` | MIT 允许商用与再分发,保留声明 | 原文已核,签字 PENDING |
+| SenseVoice Small INT8 模型权重 | 2024-07-17 | **Apache-2.0**(模型页 `iic/SenseVoiceSmall`) | `docs/licenses/funasr-LICENSE`(仅代码) | Apache-2.0 允许商用与再分发,保留声明与 NOTICE | 原文已核,签字 PENDING |
 | SenseVoice `tokens.txt` | 同上 | 同模型归档 | 同上 | 同上 | PENDING |
 | Silero VAD 模型(v4) | asr-models 归档 | MIT | `docs/licenses/silero-vad-LICENSE` | 保留版权与许可声明 | 原文已核,签字 PENDING |
 | 官方测试样本 `zh.wav` / `en.wav` | 同模型归档 | 同模型归档 | — | 仅测试构建使用,不随发布产物分发 | PENDING |
@@ -22,10 +22,12 @@
 
 1. 四项核心组件均为宽松许可证(MIT / Apache-2.0),均**允许商用与再分发**,前提是保留版权与许可声明。
 2. 分发动作要求:发布产物附带第三方声明文件(汇总上表),App"关于"页或随包 NOTICE 引用。
-3. 待确认残留项:
-   - FunASR 模型页(ModelScope)是否有附加条款超出仓库 LICENSE;
-   - sherpa-onnx 构建的 ONNX Runtime 是否含第三方编译选项(初步无 RKNN/NNAPI 特化,`provider=cpu`);
-   - Silero v4 归档内 README 的引用要求(非许可义务,建议遵守)。
+3. 已核查项(2026-11-25):
+   - **模型权重的许可不是 MIT**:`modelscope.cn/api/v1/models/iic/SenseVoiceSmall` 的 `License` 字段为 `Apache License 2.0`;FunASR 仓库的 MIT 只覆盖代码,不能代表权重。两者同为宽松许可,义务差异在 Apache-2.0 需要附带 NOTICE。归档的 `funasr-LICENSE` 应标注为「代码许可」,权重许可指向模型页。
+   - HuggingFace 镜像 `k2-fsa/sherpa-onnx-sense-voice-...-int8-2024-07-17` 无 model card 许可声明,故不作为许可依据,只作为分发来源。
+   - sherpa-onnx 内置的 ONNX Runtime 为多执行提供者构建(strings 可见 `NnapiExecutionProvider`、`QnnExecutionProvider`、`XnnpackExecutionProvider`、`CoreMLExecutionProvider`),但 APK 未打包 Qualcomm `libQnn*.so`,运行期固定 `provider = cpu`,因此分发物不含 QNN/NNAPI 专有二进制。
+4. 待确认残留项(仅一条,非许可义务):
+   - Silero v4 归档 README 请求在学术工作中引用原作者;这是引用惯例,不构成再分发条件,建议在 README 遵守。
 
 ## 待办(T0-03 收口)
 

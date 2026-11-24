@@ -10,6 +10,7 @@
 - [第三方版本锁定清单](docs/third_party_versions.md)
 - [第三方许可证清单](docs/third_party_licenses.md)
 - [发布门检查清单](docs/release_checklist.md)
+- [升级路径验证方案](docs/upgrade_verification_plan.md)
 - [标识使用指南](docs/brand/sonlet-logo-kit/使用指南.md)
 
 ## 工程结构
@@ -70,8 +71,8 @@ scripts/fetch_model.sh
 推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml`（Release Candidate）会构建并校验：
 
 ```sh
-git tag -a v0.1.3 -m "v0.1.3"
-git push origin v0.1.3
+git tag -a v0.1.4 -m "v0.1.4"
+git push origin v0.1.4
 ```
 
 工作流依次：读取已公开版本 → 解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 上传 artifact `sonlet-release-apk`。
@@ -81,7 +82,7 @@ git push origin v0.1.3
 只想演练、不产出候选包以外的副作用：
 
 ```sh
-gh workflow run "Release Candidate" --ref main -f tag=v0.1.3
+gh workflow run "Release Candidate" --ref main -f tag=v0.1.4
 ```
 
 模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。

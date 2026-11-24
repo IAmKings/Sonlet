@@ -1,6 +1,7 @@
 package com.sonlet.app.feature.dictation
 
 import android.app.Application
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,9 @@ import com.sonlet.app.audio.capture.PcmAudioRecorder
 import com.sonlet.app.audio.vad.SileroVoiceSegmenter
 import com.sonlet.app.dictation.core.DictationCommand
 import com.sonlet.app.dictation.core.DictationController
+import com.sonlet.app.dictation.core.DraftKeeper
+import com.sonlet.app.dictation.core.DraftStore
+import com.sonlet.app.dictation.core.SharedPreferencesDraftStore
 import com.sonlet.app.dictation.core.DictationErrorCode
 import com.sonlet.app.dictation.core.DictationEvent
 import com.sonlet.app.dictation.core.DictationStyle
@@ -28,13 +32,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * 听写页 ViewModel:持有编辑器状态(跨转写存活,交付时取最新 —— CC-04),
  * 将 Controller 事件接为文本插入与轻提示(PRD §5.3、DESIGN.md §6)。
  */
-class DictationViewModel(application: Application) : AndroidViewModel(application) {
+class DictationViewModel @JvmOverloads constructor(
+    application: Application,
+    private val draftStore: DraftStore = SharedPreferencesDraftStore(application),
+) : AndroidViewModel(application) {
 
     private val repository = ModelRepository(
         assets = application.assets,
@@ -84,6 +93,7 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateEditor(value: TextFieldValue) {
         editorValue = value
+        draftKeeper.onChange(value)
     }
 
     /** 轻提示队列(一次性事件,Snackbar 消费) */
@@ -91,21 +101,32 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
         data class Res(val id: Int) : Toast
     }
 
+    /** 草稿持久化:防抖写盘,退出时补一次同步写 */
+    private val draftKeeper = DraftKeeper(draftStore, viewModelScope)
+
     private val toasts = Channel<Toast>(Channel.BUFFERED)
     val toastFlow = toasts.receiveAsFlow()
 
     init {
+        // 进程被杀后恢复上次的正文与光标;空草稿视为没有
+        draftKeeper.restore()?.let { editorValue = it }
+        // 正文走独立通道:插入成功后才确认交付,不再与提示共享背压
+        viewModelScope.launch {
+            controller.results.collect { result ->
+                // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
+                val updated = TextInsertionPolicy.insert(editorValue, result.text)
+                originalState.value = result.original
+                editorValue = updated
+                onEditorChanged?.invoke(updated)
+                draftKeeper.onChange(updated, immediate = true)
+                controller.confirmDelivered(result.sessionId, result.resultId)
+                toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_inserted))
+            }
+        }
+        // 轻提示:允许丢弃,trySend 不阻塞调用方
         viewModelScope.launch {
             controller.events.collect { event ->
                 when (event) {
-                    is DictationEvent.TranscriptReady -> {
-                        // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
-                        val updated = TextInsertionPolicy.insert(editorValue, event.text)
-                        originalState.value = event.original
-                        editorValue = updated
-                        onEditorChanged?.invoke(updated)
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_inserted))
-                    }
                     is DictationEvent.TranscriptEmpty -> {
                         originalState.value = event.original
                         val message = if (event.original == null) {
@@ -113,14 +134,15 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
                         } else {
                             com.sonlet.app.R.string.msg_filtered
                         }
-                        toasts.send(Toast.Res(message))
+                        toasts.trySend(Toast.Res(message))
                     }
                     DictationEvent.TooShort ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_too_short))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_too_short))
                     DictationEvent.DurationCapped ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_duration_capped))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_duration_capped))
                     DictationEvent.RouteChanged ->
-                        toasts.send(Toast.Res(com.sonlet.app.R.string.msg_route_changed))
+                        toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_route_changed))
+                    is DictationEvent.TranscriptReady -> Unit
                 }
             }
         }
@@ -163,6 +185,8 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
     private val teardownScope = CoroutineScope(teardownJob + Dispatchers.IO)
 
     override fun onCleared() {
+        // 退出前把尚未防抖落盘的草稿写下来
+        runCatching { draftKeeper.flush(editorValue) }
         // 页面销毁:停止采集、失效交付、释放 native 资源(PRD §5.3、AC-P0-014)
         teardownScope.launch {
             try {
@@ -177,4 +201,5 @@ class DictationViewModel(application: Application) : AndroidViewModel(applicatio
         }
         super.onCleared()
     }
+
 }

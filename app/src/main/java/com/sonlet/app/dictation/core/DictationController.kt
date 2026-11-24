@@ -17,13 +17,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,6 +58,11 @@ class DictationController(
     private val speechSegmenter: SpeechSegmenter? = null,
     /** 会话异常诊断出口;core 保持 android-free(PRD §7.3),宿主接 Log/SBOM 白名单 */
     private val errorLogger: (Throwable) -> Unit = {},
+    /**
+     * 单调时钟(毫秒),注入以便单测推进虚拟时间。
+     * 录音截止必须用它:按已采集样本量计算时,设备零读会让时长永远停在 0,录制永不自动结束。
+     */
+    private val nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
 
     private val commands = Channel<DictationCommand>(Channel.UNLIMITED)
@@ -62,7 +70,15 @@ class DictationController(
     val state: StateFlow<DictationUiState> = _state.asStateFlow()
 
     private val _events = MutableSharedFlow<DictationEvent>(extraBufferCapacity = 16)
+
+    /** 轻提示类事件;允许丢弃,不影响正文交付 */
     val events: SharedFlow<DictationEvent> = _events.asSharedFlow()
+
+    // 正文走无损通道:UI 消费速度不影响结果,且按插入顺序到达
+    private val _results = Channel<DictationEvent.TranscriptReady>(Channel.UNLIMITED)
+
+    /** 已处理待插入的正文;消费者插入后需调用 [confirmDelivered] */
+    val results: Flow<DictationEvent.TranscriptReady> = _results.receiveAsFlow()
 
     private val guard = SessionGenerationGuard()
 
@@ -117,6 +133,7 @@ class DictationController(
         shutdownDone = true
         started = false
         commands.close()
+        _results.close()
         guard.invalidateAll()
         pendingFinish = false
         // 先取消会话(join 在途转写与 VAD),再收敛采集,最后放引擎
@@ -147,9 +164,13 @@ class DictationController(
             }
             DictationCommand.Cancel -> if (phase in CANCELLABLE_PHASES) cancelActive()
             DictationCommand.AppBackgrounded -> if (phase in CANCELLABLE_PHASES) cancelActive()
-            DictationCommand.AudioRouteInterrupted -> if (phase in CANCELLABLE_PHASES) {
-                cancelActive()
-                _events.tryEmit(DictationEvent.RouteChanged)
+            // 音频已采集完时路由变化不影响结果:继续转写(AC-P0-015 只管"录制中不自动回填")
+            DictationCommand.AudioRouteInterrupted -> when (phase) {
+                DictationPhase.STARTING, DictationPhase.RECORDING -> {
+                    cancelActive()
+                    _events.tryEmit(DictationEvent.RouteChanged)
+                }
+                else -> Unit
             }
             DictationCommand.RetryModel -> if (
                 phase == DictationPhase.PREPARING ||
@@ -227,11 +248,23 @@ class DictationController(
                 pendingFinish = false
                 finish.complete(Unit)
             }
+            var lastDuration = -1L
+            var lastProgressAtMs = nowMs()
             val ticker = scope.launch {
                 while (true) {
                     delay(DURATION_TICK_MS)
-                    val duration = capture.currentDurationMs
-                    if (duration >= captureOptions.maxDurationMs) finish.complete(Unit)
+                    val duration = capture.currentDurationMs.coerceAtMost(captureOptions.maxDurationMs)
+                    val now = nowMs()
+                    if (duration > lastDuration) {
+                        lastDuration = duration
+                        lastProgressAtMs = now
+                    }
+                    // 到时即收尾;另外设备零读时时长不前进,只看时长会永不结束,故加"停滞"判定
+                    if (duration >= captureOptions.maxDurationMs ||
+                        now - lastProgressAtMs >= captureOptions.maxDurationMs
+                    ) {
+                        finish.complete(Unit)
+                    }
                     val level = capture.currentLevel
                     _state.update { state ->
                         if (state.sessionId == sessionId) {
@@ -329,16 +362,24 @@ class DictationController(
         }
         // 结果交付唯一:代际 + resultId 双重校验(不变量 2/3,CC-03/CC-10)
         if (guard.canDeliver(sessionId) && guard.markDelivered(sessionId, lastResultId)) {
-            _events.tryEmit(
-                DictationEvent.TranscriptReady(
-                    sessionId,
-                    lastResultId,
-                    processed.formatted,
-                    processed.raw.takeIf { it != processed.formatted },
-                ),
-            )
+            try {
+                _results.send(
+                    DictationEvent.TranscriptReady(
+                        sessionId,
+                        lastResultId,
+                        processed.formatted,
+                        processed.raw.takeIf { it != processed.formatted },
+                    ),
+                )
+            } catch (_: ClosedSendChannelException) {
+                // 控制器已关闭,结果不再投递
+            }
         }
     }
+
+    /** UI 已把结果插入编辑器后的确认(与发射去重分开);返回 false 表示会话已失效 */
+    fun confirmDelivered(sessionId: Long, resultId: String): Boolean =
+        guard.confirmDelivered(sessionId, resultId)
 
     private fun cancelActive() {
         val sessionId = _state.value.sessionId ?: return
