@@ -26,6 +26,7 @@ val sonletVersionCode = providers.gradleProperty("sonletVersionCode").orNull?.to
 android {
     namespace = "com.sonlet.app"
     compileSdk = 37
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "com.sonlet.app"
