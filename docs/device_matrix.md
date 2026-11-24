@@ -9,7 +9,7 @@
 | 设备 | Redmi 23078PND5G（corot），Android 14（API 34） |
 | CPU/ABI | arm64-v8a（APK 只打包该 ABI） |
 | 屏幕 | 1220×2712，竖屏 + 横屏（`user_rotation`） |
-| 版本 | v0.1.3（versionCode 103） |
+| 版本 | v0.1.3（versionCode 103）测矩阵；v0.1.4（104）已装真机验证启动与界面 |
 | 时间 | 2026-11-22 至 2026-11-23 |
 
 ## 2. 覆盖情况
