@@ -24,7 +24,7 @@ jobs:
     name: 构建候选包
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 递增门以已公开版本为基准:取所有 Release tag 里最大的 versionCode
       - name: 读取已公开版本
