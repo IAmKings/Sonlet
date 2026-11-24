@@ -3,7 +3,7 @@ package com.sonlet.app.audio.capture
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.rule.GrantPermissionRule
+import com.sonlet.app.testing.AudioPermissionRule
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,8 +20,7 @@ import org.junit.runner.RunWith
 class AudioRecordLifecycleTest {
 
     @get:Rule
-    val permissionRule: GrantPermissionRule =
-        GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+    val permissionRule: AudioPermissionRule = AudioPermissionRule()
 
     private val context: Context = InstrumentationRegistry.getInstrumentation()
         .targetContext.applicationContext

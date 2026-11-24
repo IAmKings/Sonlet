@@ -6,7 +6,8 @@
 
 | 项 | 值 |
 |---|---|
-| 设备 | Redmi 23078PND5G（corot），Android 14（API 34） |
+| 设备 A | Redmi 23078PND5G（corot），Android 14（API 34） |
+| 设备 B | OnePlus PJZ110，Android 17（API 37），ColorOS |
 | CPU/ABI | arm64-v8a（APK 只打包该 ABI） |
 | 屏幕 | 1220×2712，竖屏 + 横屏（`user_rotation`） |
 | 版本 | v0.1.3（versionCode 103）测矩阵；v0.1.4（104）已装真机验证启动与界面 |
@@ -24,8 +25,9 @@
 | 外接键盘（回车/空格切换录音） | 通过 | `VoiceActionRowGestureTest` OK (6 tests) |
 | 权限：首次授予、拒绝、永久拒绝、设置页恢复 | 通过 | `MicPermissionStateTest` 4 例 + 人工复核 |
 | 完全离线 | 通过（静态） | APK 无 `android.permission.INTERNET`（`dumpsys package` 无该权限行） |
-| 系统版本 26 / 30 / 35+ | **未覆盖** | 只有一台 API 34 设备，无第二台可用 |
-| 其他 SoC / 厂商 ROM | **未覆盖** | 同上 |
+| 系统版本 26 / 30 | **未覆盖** | 手上最低是 API 34 |
+| 系统版本 35+（Android 17 / API 37） | 部分通过 | PJZ110：安装、冷启动 354ms、界面、UI 用例、模型推理均通过；重负载用例被厂商清理器杀，见 §3.4 |
+| 其他 SoC / 厂商 ROM | 部分通过 | 已覆盖高通 + ColorOS（PJZ110）；联发科未覆盖 |
 | 长稳（100 次会话） | 通过（单独运行） | 单独派发 `OK (1 test)`；与评测同进程会崩，见 §3.1 |
 | 转屏用例（3 例） | 通过 | 修复用例本身的两个缺陷后 `OK (3 tests)`，见 §3.2 |
 | 全量仪器套件（42 项，就地跑） | 通过 | 2026-11-24 `--in-place` 一轮：41 + 1，0 失败，462 秒 |
