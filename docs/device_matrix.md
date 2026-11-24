@@ -6,8 +6,8 @@
 
 | 项 | 值 |
 |---|---|
-| 设备 A | Redmi 23078PND5G（corot），Android 14（API 34） |
-| 设备 B | OnePlus PJZ110，Android 17（API 37），ColorOS |
+| 设备 A | Redmi 23078PND5G（corot），MediaTek MT6985（天玑 9200+），Android 14（API 34），HyperOS OS1.0 |
+| 设备 B | OnePlus PJZ110，Qualcomm SM8750（骁龙 8 Elite），Android 17（API 37），ColorOS |
 | CPU/ABI | arm64-v8a（APK 只打包该 ABI） |
 | 屏幕 | 1220×2712，竖屏 + 横屏（`user_rotation`） |
 | 版本 | v0.1.3（versionCode 103）测矩阵；v0.1.4（104）已装真机验证启动与界面 |
@@ -25,9 +25,9 @@
 | 外接键盘（回车/空格切换录音） | 通过 | `VoiceActionRowGestureTest` OK (6 tests) |
 | 权限：首次授予、拒绝、永久拒绝、设置页恢复 | 通过 | `MicPermissionStateTest` 4 例 + 人工复核 |
 | 完全离线 | 通过（静态） | APK 无 `android.permission.INTERNET`（`dumpsys package` 无该权限行） |
-| 系统版本 26 / 30 | **未覆盖** | 手上最低是 API 34 |
-| 系统版本 35+（Android 17 / API 37） | 通过 | PJZ110：安装、冷启动 354ms、界面、全量仪器 **42 项 `OK (42 tests)`**，见 §3.4 |
-| 其他 SoC / 厂商 ROM | 部分通过 | 已覆盖高通 + ColorOS（PJZ110，42/42）；联发科未覆盖 |
+| Android 版本 | 通过 14（API 34）与 17（API 37）；**API 26–33 未覆盖** | 两台各跑全量 `OK (42 tests)`；PJZ110 冷启 354ms、界面正常（§3.4） |
+| SoC 平台 | 通过 | 联发科 MT6985（Dimensity 9200+）与高通 SM8750（Snapdragon 8 Elite）各 42/42 |
+| 厂商 ROM | 部分覆盖 | 小米 HyperOS OS1.0（Android 14）与 ColorOS（Android 17）；其他 ROM 未覆盖 |
 | 长稳（100 次会话） | 通过（单独运行） | 单独派发 `OK (1 test)`；与评测同进程会崩，见 §3.1 |
 | 转屏用例（3 例） | 通过 | 修复用例本身的两个缺陷后 `OK (3 tests)`，见 §3.2 |
 | 全量仪器套件（42 项，就地跑） | 通过 | 2026-11-24 `--in-place` 一轮：41 + 1，0 失败，462 秒 |
