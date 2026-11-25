@@ -43,3 +43,6 @@ __pycache__/
 /.trellis/*
 !/.trellis/journal/
 /.agents/
+
+# 签字材料导出的 PDF(由 scripts/render_signoff_pdf.sh 生成)
+/docs/exports/
