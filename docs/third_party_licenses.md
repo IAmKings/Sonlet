@@ -7,12 +7,12 @@
 
 | 组件 | 版本 | 许可证 | 原文归档 | 再分发要点 | 复核状态 |
 |---|---|---|---|---|---|
-| sherpa-onnx(Kotlin API + JNI `.so`) | v2.0.1 | Apache-2.0 | `docs/licenses/sherpa-onnx-LICENSE` | 保留 LICENSE/NOTICE 与版权声明;注明修改 | 原文已核,签字 PENDING |
-| ONNX Runtime(`libonnxruntime.so`) | 随 sherpa-onnx v2.0.1 | MIT | `docs/licenses/onnxruntime-LICENSE` | 保留版权与许可声明 | 原文已核,签字 PENDING |
-| SenseVoice Small INT8 模型权重 | 2024-07-17 | **Apache-2.0**(模型页 `iic/SenseVoiceSmall`) | `docs/licenses/sensevoice-weights-LICENSE`(权重);`docs/licenses/funasr-LICENSE`(FunASR 代码,未随包分发) | Apache-2.0 允许商用与再分发,保留声明与 NOTICE | 原文已核,签字 PENDING |
-| SenseVoice `tokens.txt` | 同上 | 同模型归档 | 同上 | 同上 | PENDING |
-| Silero VAD 模型(v4) | asr-models 归档 | MIT | `docs/licenses/silero-vad-LICENSE` | 保留版权与许可声明 | 原文已核,签字 PENDING |
-| 官方测试样本 `zh.wav` / `en.wav` | 同模型归档 | 同模型归档 | — | 仅测试构建使用,不随发布产物分发 | PENDING |
+| sherpa-onnx(Kotlin API + JNI `.so`) | v2.0.1 | Apache-2.0 | `docs/licenses/sherpa-onnx-LICENSE` | 保留 LICENSE/NOTICE 与版权声明;注明修改 | 原文已核,已签字 2026-11-25(Kuluoluo) |
+| ONNX Runtime(`libonnxruntime.so`) | 随 sherpa-onnx v2.0.1 | MIT | `docs/licenses/onnxruntime-LICENSE` | 保留版权与许可声明 | 原文已核,已签字 2026-11-25(Kuluoluo) |
+| SenseVoice Small INT8 模型权重 | 2024-07-17 | **Apache-2.0**(模型页 `iic/SenseVoiceSmall`) | `docs/licenses/sensevoice-weights-LICENSE`(权重);`docs/licenses/funasr-LICENSE`(FunASR 代码,未随包分发) | Apache-2.0 允许商用与再分发,保留声明与 NOTICE | 原文已核,已签字 2026-11-25(Kuluoluo) |
+| SenseVoice `tokens.txt` | 同上 | 同模型归档 | 同上 | 同上 | 随权重一并签字 2026-11-25 |
+| Silero VAD 模型(v4) | asr-models 归档 | MIT | `docs/licenses/silero-vad-LICENSE` | 保留版权与许可声明 | 原文已核,已签字 2026-11-25(Kuluoluo) |
+| 官方测试样本 `zh.wav` / `en.wav` | 同模型归档 | 同模型归档 | — | 仅测试构建使用,不随发布产物分发 | 不适用(不分发) |
 
 ## AndroidX / Kotlin(经 Maven 解析)
 

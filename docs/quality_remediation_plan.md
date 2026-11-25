@@ -1,10 +1,10 @@
 # Sonlet 代码质量整改计划
 
-**状态**　执行中，2026-11-25：第 1、2、3 节完成；第 4 节 4-1~4-3 完成，4-4 材料齐备待合规负责人签字。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.4](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.4)。
+**状态**　完成，2026-11-25：第 1–3 节与第 4 节（含 4-4 合规签字）全部完成。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.4](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.4)。
 
 本轮目标是恢复可核验的发布流程，解决听写结果丢失和录音停不下来的问题，并补齐正文隐私与界面验收。既有性能目标、待验证项和受限内测批准沿用 [PRD](Hex_Android_Offline_ASR_PRD_v1.0.md)、[发布决策](release_decision.md)与[发布检查清单](release_checklist.md)。[上次候选包记录](release_readiness_plan.md)仅对应其中记录的文件摘要。
 
-## 完成情况（2026-11-22）
+## 完成情况（2026-11-25）
 
 | 节 | 工作 | 状态 | 落地 |
 |---|---|---|---|
@@ -20,7 +20,7 @@
 | 4-1 | 单测 / Python / 双变体 Lint / actionlint / 签名构建 | 完成 | `ci.yml` 跑 `lintDebug lintRelease` 与 `actionlint`；签名构建在 Release Candidate 工作流内 |
 | 4-2 | 真机验收 | 完成 | 两台各一轮全量 `OK (42 tests)`：Redmi 23078PND5G（MediaTek MT6985 / Android 14 / HyperOS）、OnePlus PJZ110（Qualcomm SM8750 / Android 17 / ColorOS）。覆盖安装冷启、0.1.2→0.1.3 升级、真实录音、200% 字体/深色/横屏、外接键盘、权限四态、长稳与转屏；证据见 `docs/device_matrix.md`，跑测见 `scripts/run_device_matrix.sh`（`a159b37`、`f31c6b5`、`68fac25`、`0b9e059`）。**未覆盖**：Android 26–33、其他厂商 ROM |
 | 4-3 | CER/WER 与 P95 延迟 | 完成 | 合成语料 90 条（zh/en/mixed 各 30），基线 zh CER 1.66% / en WER 2.08% / mixed CER 2.74%，RTF p95 ≤ 0.10，记录于 `docs/benchmarks/asr_accuracy_2026-11-22.md`；`AsrAccuracyEvalTest` 加回归门槛（10% / 10% / 12%）。**局限**：语料是 TTS 合成，缺口音、口吃、噪声与远场，不能替代真人验收 |
-| 4-4 | G07 签字 / NOTICE / SBOM | 待签字 | 工程材料齐备：`docs/g07_signoff.md`（组件、义务、自检、限制、签字栏）、`assets/NOTICE.txt` 与四份许可原文已随包；权重许可已更正为 Apache-2.0。**仅剩合规负责人签字** |
+| 4-4 | G07 签字 / NOTICE / SBOM | 完成 | `ae8e8a9`：权重许可更正为 Apache-2.0 并随包附带原文，NOTICE 同步；签字材料 `docs/g07_signoff.md`，**2026-11-25 由 Kuluoluo 签署同意分发**；`models/manifest.json` 的 `license_review` 已转 `CONFIRMED` |
 
 
 ### 设计决定：清理超预算静默放行
