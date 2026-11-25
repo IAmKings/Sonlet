@@ -53,11 +53,14 @@ class PcmAudioRecorder(
     private var watchdogJob: Job? = null
 
     /**
-     * 停机等待超时后置位:资源仍被旧读取循环持有,新的采集必须先等它释放。
-     * 置位期间 [start] 不会并发打开第二个 AudioRecord(不变量:采集互斥)。
+     * 停机等待的状态机:预算内等不到读循环就转后台收尾,期间 [start] 不得并发开麦。
+     * 抽成独立类是为了让"超时/迟到完成/复位"三条契约能在 JVM 上被测(PcmAudioRecorder 依赖 AudioRecord)。
      */
-    @Volatile
-    private var releasePending = false
+    private val releaseGate = ReleaseGate(
+        budgetMs = CLEANUP_BUDGET_MS,
+        scope = scope,
+        onReleased = { sessionId -> finalizeRelease(sessionId, keepSamples = false) },
+    )
 
     private var activeSessionId: Long? = null
     @Volatile
@@ -91,10 +94,8 @@ class PcmAudioRecorder(
         get() = currentRms
 
     override suspend fun start(sessionId: Long, options: CaptureOptions) {
-        if (releasePending) {
-            // 旧循环尚未释放设备:等一个清理预算,仍不释放就明确拒绝,绝不并发开麦
-            withTimeoutOrNull(CLEANUP_BUDGET_MS) { readJob?.join() }
-        }
+        // 旧循环尚未释放设备:等一个清理预算,仍不释放就明确拒绝,绝不并发开麦
+        releaseGate.awaitDrain()
         mutex.withLock {
             if (activeSessionId != null) {
                 throw AudioCaptureException(
@@ -221,20 +222,13 @@ class PcmAudioRecorder(
         watchdogJob?.cancel()
         // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略
         runCatching { audioRecord?.stop() }
-        val job = readJob
-        val joined = withTimeoutOrNull(CLEANUP_BUDGET_MS) { job?.join() } != null || job?.isCompleted == true
-        if (!joined) {
-            releasePending = true
-            val sessionId = activeSessionId
+        val sessionId = activeSessionId
+        // 超时分支里 gate 会起后台等待者,真正的释放仍只发生在 finalizeRelease()
+        if (!releaseGate.awaitRelease(sessionId ?: -1L, readJob)) {
             Log.w(TAG, "capture_cleanup_timeout sessionId=$sessionId; 等待旧读循环释放后再放行")
-            // 不持锁等待:读循环的收尾路径也要拿锁,持锁 join 会自锁
-            scope.launch {
-                runCatching { job?.join() }
-                finalizeRelease(sessionId, keepSamples = false)
-            }
             return@withLock Collected(FloatArray(0), capped = false)
         }
-        finalizeRelease(activeSessionId, keepSamples)
+        finalizeRelease(sessionId, keepSamples)
     }
 
     /** 真正清状态;调用方保证读取循环已结束 */
@@ -250,7 +244,6 @@ class PcmAudioRecorder(
             sampleCount = 0
             durationCapped = false
             stopRequested = false
-            releasePending = false
             currentRms = 0f
             result
         }
