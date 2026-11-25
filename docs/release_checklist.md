@@ -62,7 +62,7 @@
 ## G07 许可证/版本/哈希确认
 
 - [x] 版本与哈希已锁定并归档(docs/third_party_versions.md、models/manifest.json)
-- [ ] 模型再分发许可签字(docs/third_party_licenses.md PENDING —— 分发前硬阻塞)
+- [x] 模型再分发许可签字 —— 2026-11-25 Kuluoluo 签署(材料 docs/g07_signoff.md,导出 docs/exports/)
 
 ## G08 Debug/Release 双构建 ABI 实测
 
