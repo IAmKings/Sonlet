@@ -3,6 +3,7 @@ package com.sonlet.app.dictation.core
 import com.sonlet.app.asr.api.FakeAsrEngine
 import com.sonlet.app.audio.capture.CaptureOptions
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -63,6 +64,51 @@ class ResultDeliveryTest {
         assertEquals(100, received.map { it.resultId }.toSet().size)
         assertTrue(received.all { it.text == "内容" })
         collector.cancel()
+    }
+
+    @Test
+    fun `error response voids a queued result that was never written`() = runTest {
+        // 复审 P1-2 的同类入口:结果已入队但消费者还没取走时,控制器进入 ERROR。
+        // 修前 enterError 只调 endSession,交付窗口仍然开着,旧正文会在此后被写进编辑器。
+        val engine = FakeAsrEngine().apply { transcribeText = "旧正文" }
+        val capture = FakeAudioCapture()
+        val controller = DictationController(
+            engine = engine,
+            capture = capture,
+            captureOptions = CaptureOptions(),
+            modelVerification = { ModelVerificationResult.Ok },
+            scope = backgroundScope,
+            styleProvider = { DictationStyle.VERBATIM },
+            speechSegmenter = null,
+        )
+        controller.start()
+        awaitPhase(controller, DictationPhase.READY)
+
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        pump(2_000)
+        awaitPhase(controller, DictationPhase.READY)
+
+        // 结果此刻已在 Channel 里排队,尚未被消费者确认
+        val result = controller.results.first()
+        assertTrue(
+            "入队后、作废前应仍在交付窗口内",
+            controller.canApplyResult(result.sessionId, result.resultId),
+        )
+
+        controller.voidPendingDeliveries()
+
+        // 作废后同一个结果不能再被确认,消费方据此一个字都不写
+        assertTrue(
+            "错误应答后队列里的结果必须作废",
+            !controller.canApplyResult(result.sessionId, result.resultId),
+        )
+        assertTrue(
+            "作废后连确认都不该成功",
+            !controller.confirmDelivered(result.sessionId, result.resultId),
+        )
     }
 
     @Test

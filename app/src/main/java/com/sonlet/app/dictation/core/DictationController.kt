@@ -380,6 +380,18 @@ class DictationController(
     /** 离开听写页:队列里尚未写入的结果一律作废 */
     fun revokePending() = guard.invalidateAll()
 
+    /**
+     * 作废所有尚未写入的结果(错误应答、离开页面)。
+     * 与 [revokePending] 同义,单独留一个名字给 `enterError` 用:
+     * 错误路径必须无条件清空交付窗口,不能依赖 `state.sessionId`
+     * —— 走到 ERROR 时它可能已经是 null(例如结果已交付后模型校验失败)。
+     */
+    internal fun voidPendingDeliveries() = guard.invalidateAll()
+
+    /** 只读探针:该结果现在是否还允许写入编辑器(测试与排障用) */
+    internal fun canApplyResult(sessionId: Long, resultId: String): Boolean =
+        guard.canApply(sessionId, resultId)
+
     private fun cancelActive() {
         val sessionId = _state.value.sessionId ?: return
         // 取消/切后台:撤销尚未写入的结果,避免回来后旧正文被补进去
@@ -424,10 +436,9 @@ class DictationController(
     }
 
     private fun enterError(code: DictationErrorCode) {
-        val sessionId = _state.value.sessionId
-        if (sessionId != null) {
-            guard.endSession(sessionId)
-        }
+        // 进入 ERROR 说明这一轮已经没有可交付的东西:把还在队列里的结果一并作废,
+        // 否则用户看到错误提示之后,队列里的旧正文仍会写进编辑器(复审 P1-2 同类问题)
+        voidPendingDeliveries()
         sessionJob?.cancel()
         sessionJob = null
         _state.update {
