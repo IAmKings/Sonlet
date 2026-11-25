@@ -24,9 +24,12 @@ class DraftPersistenceTest {
 
     private lateinit var store: SharedPreferencesDraftStore
 
+    /** 独立存储:设备测试不得读写用户真实的 editor_draft */
+    private val testPrefs = "editor_draft_test"
+
     @Before
     fun setUp() {
-        store = SharedPreferencesDraftStore(app)
+        store = SharedPreferencesDraftStore(app, prefsName = testPrefs)
         store.clear()
     }
 
@@ -39,7 +42,7 @@ class DraftPersistenceTest {
     fun draftSurvivesNewStoreInstance() {
         store.save(DraftStore.Draft("跨进程的草稿", 3, 3))
 
-        val reopened = SharedPreferencesDraftStore(app).load()
+        val reopened = SharedPreferencesDraftStore(app, prefsName = testPrefs).load()
         assertEquals("跨进程的草稿", reopened?.text)
         assertEquals(3, reopened?.selectionStart)
         assertEquals(3, reopened?.selectionEnd)
@@ -49,7 +52,7 @@ class DraftPersistenceTest {
     fun clearingRemovesDraft() {
         store.save(DraftStore.Draft("要清掉的", 2, 2))
         store.clear()
-        assertNull(SharedPreferencesDraftStore(app).load())
+        assertNull(SharedPreferencesDraftStore(app, prefsName = testPrefs).load())
     }
 
     @Test
@@ -66,5 +69,17 @@ class DraftPersistenceTest {
 
         assertEquals("上次退出时的正文", viewModel.editorValue.text)
         assertEquals(4, viewModel.editorValue.selection.start)
+    }
+
+    @Test
+    fun deviceTestDoesNotTouchTheProductionDraftStore() {
+        val production = SharedPreferencesDraftStore(app)
+        val before = production.load()
+
+        store.save(DraftStore.Draft("测试草稿", 1, 1))
+        store.clear()
+
+        val after = SharedPreferencesDraftStore(app).load()
+        assertEquals("设备测试改动了生产草稿", before?.text, after?.text)
     }
 }

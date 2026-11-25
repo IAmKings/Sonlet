@@ -82,4 +82,39 @@ class SessionGenerationGuardTest {
         // 新会话的 resultId 空间独立;不同会话相同 id(理论不可达)不被旧记录阻塞
         assertTrue(guard.markDelivered(s2, "new-session-result"))
     }
+
+    @Test
+    fun `finished session keeps a delivery window until confirmed`() {
+        val guard = SessionGenerationGuard()
+        val session = guard.beginSession()
+        guard.finishSession(session)
+
+        assertTrue(guard.canApply(session, "r1"))
+        assertTrue(guard.confirmDelivered(session, "r1"))
+        // 确认后关窗:迟到结果不得再写入
+        assertFalse(guard.canApply(session, "r2"))
+        assertFalse(guard.confirmDelivered(session, "r2"))
+    }
+
+    @Test
+    fun `revoke closes the window for queued results`() {
+        val guard = SessionGenerationGuard()
+        val session = guard.beginSession()
+        guard.finishSession(session)
+        guard.revoke(session)
+
+        assertFalse(guard.canApply(session, "r1"))
+        assertFalse(guard.confirmDelivered(session, "r1"))
+    }
+
+    @Test
+    fun `new session does not inherit the previous delivery window`() {
+        val guard = SessionGenerationGuard()
+        val first = guard.beginSession()
+        guard.finishSession(first)
+        val second = guard.beginSession()
+
+        assertFalse(guard.canApply(first, "r1"))
+        assertTrue(guard.canApply(second, "r2"))
+    }
 }
