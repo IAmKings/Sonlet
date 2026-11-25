@@ -74,7 +74,7 @@ class ReleaseGateTest {
     }
 
     @Test
-    fun `finished within budget releases immediately`() = runTest {
+    fun `finished within budget leaves the release to the caller`() = runTest {
         val released = mutableListOf<Long>()
         val gate = ReleaseGate(budgetMs = 1_000L, scope = backgroundScope) { released += it }
         val done = Job().apply { complete() }
@@ -83,7 +83,7 @@ class ReleaseGateTest {
         runCurrent()
 
         assertTrue(joined)
-        assertEquals(listOf(sessionId), released)
+        assertEquals("预算内结束由调用方收尾,后台等待者不得再收一次", emptyList<Long>(), released)
         assertFalse(gate.releasePending)
     }
 }

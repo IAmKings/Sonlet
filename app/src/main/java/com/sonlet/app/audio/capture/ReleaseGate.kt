@@ -39,10 +39,8 @@ internal class ReleaseGate(
      */
     suspend fun awaitRelease(sessionId: Long, job: Job?): Boolean {
         val joined = withTimeoutOrNull(budgetMs) { job?.join() } != null || job?.isCompleted == true
-        if (joined) {
-            onReleased(sessionId)
-            return true
-        }
+        // 预算内结束:收尾交给调用方做,避免和后台等待者各收一次(会把刚采到的样本清空)
+        if (joined) return true
 
         val signal = synchronized(lock) {
             // 已有后台等待者时不重复起一个，避免同一会话被收尾两次
