@@ -8,9 +8,13 @@ ONNX Runtime (native library distributed with sherpa-onnx v2.0.1)
 License text: onnxruntime-LICENSE
 Source: https://github.com/microsoft/onnxruntime
 
-SenseVoice Small INT8 and vocabulary (2024-07-17 artifact)
-Archived upstream license text: funasr-LICENSE
-Source: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
+SenseVoice Small INT8 model weights and vocabulary (2024-07-17 artifact)
+License: Apache License 2.0
+License text: sensevoice-weights-LICENSE
+Model page: https://modelscope.cn/models/iic/SenseVoiceSmall
+Artifact: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
+Note: the FunASR source repository is MIT, but the model weights are licensed
+under Apache-2.0 per the upstream model page. Only the weights are bundled.
 
 Silero VAD v4
 License text: silero-vad-LICENSE
