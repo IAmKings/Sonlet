@@ -91,4 +91,78 @@ class ResultDeliveryTest {
         }
         error("等待 ${phase} 超时,当前 ${controller.state.value.phase}")
     }
+
+    @Test
+    fun `revoked session never applies its queued result`() = runTest {
+        val engine = FakeAsrEngine().apply { transcribeText = "旧结果" }
+        val capture = FakeAudioCapture()
+        val controller = DictationController(
+            engine = engine,
+            capture = capture,
+            captureOptions = CaptureOptions(),
+            modelVerification = { ModelVerificationResult.Ok },
+            scope = backgroundScope,
+            styleProvider = { DictationStyle.VERBATIM },
+            speechSegmenter = null,
+        )
+        controller.start()
+
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        pump(2_000)
+        awaitPhase(controller, DictationPhase.READY)
+
+        // 结果已入队、消费者还没取走:此时切后台,队列里的旧正文必须作废
+        controller.revokePending()
+
+        val applied = mutableListOf<String>()
+        val collector = launch {
+            controller.results.collect { result ->
+                if (controller.confirmDelivered(result.sessionId, result.resultId)) {
+                    applied.add(result.text)
+                }
+            }
+        }
+        pump(1_000)
+        assertTrue("撤销后不得写入任何正文,实际 $applied", applied.isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `foreground completion still applies its result once`() = runTest {
+        val engine = FakeAsrEngine().apply { transcribeText = "正常" }
+        val capture = FakeAudioCapture()
+        val controller = DictationController(
+            engine = engine,
+            capture = capture,
+            captureOptions = CaptureOptions(),
+            modelVerification = { ModelVerificationResult.Ok },
+            scope = backgroundScope,
+            styleProvider = { DictationStyle.VERBATIM },
+            speechSegmenter = null,
+        )
+        controller.start()
+
+        val applied = mutableListOf<String>()
+        val collector = launch {
+            controller.results.collect { result ->
+                if (controller.confirmDelivered(result.sessionId, result.resultId)) {
+                    applied.add(result.text)
+                }
+            }
+        }
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        pump(2_000)
+        awaitPhase(controller, DictationPhase.READY)
+
+        assertEquals(listOf("正常"), applied)
+        collector.cancel()
+    }
 }

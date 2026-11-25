@@ -33,6 +33,32 @@ class DraftKeeperTest {
         TextFieldValue(text, TextRange(start, end))
 
     @Test
+    fun `clearing text deletes the draft immediately without debounce`() = runTest {
+        val store = FakeStore()
+        val keeper = DraftKeeper(store, backgroundScope, debounceMs = 320)
+        keeper.onChange(tf("要清掉的正文", 5))
+        advanceTimeBy(321)
+        runCurrent()
+        assertEquals("要清掉的正文", store.saved?.text)
+
+        keeper.onChange(tf("", 0))
+        // 不等防抖:清空是明确动作,立即生效
+        assertNull(store.saved)
+    }
+
+    @Test
+    fun `pending save cannot resurrect text after clearing`() = runTest {
+        val store = FakeStore()
+        val keeper = DraftKeeper(store, backgroundScope, debounceMs = 320)
+        keeper.onChange(tf("旧正文", 3))
+        // 防抖窗口内清空:排队中的写入必须作废
+        keeper.onChange(tf("", 0))
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertNull(store.saved)
+    }
+
+    @Test
     fun `restore returns null when nothing stored`() {
         val keeper = DraftKeeper(FakeStore(), kotlinx.coroutines.GlobalScope, debounceMs = 50)
         assertNull(keeper.restore())

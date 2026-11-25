@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -48,6 +49,16 @@ class PcmAudioRecorder(
     private var audioRecord: AudioRecord? = null
     private var readJob: Job? = null
 
+    /** 独立于读取循环的截止看门狗:读阻塞时也能到点解阻塞(PRD AC-P0-007) */
+    private var watchdogJob: Job? = null
+
+    /**
+     * 停机等待超时后置位:资源仍被旧读取循环持有,新的采集必须先等它释放。
+     * 置位期间 [start] 不会并发打开第二个 AudioRecord(不变量:采集互斥)。
+     */
+    @Volatile
+    private var releasePending = false
+
     private var activeSessionId: Long? = null
     @Volatile
     private var options: CaptureOptions = defaultOptions
@@ -80,6 +91,10 @@ class PcmAudioRecorder(
         get() = currentRms
 
     override suspend fun start(sessionId: Long, options: CaptureOptions) {
+        if (releasePending) {
+            // 旧循环尚未释放设备:等一个清理预算,仍不释放就明确拒绝,绝不并发开麦
+            withTimeoutOrNull(CLEANUP_BUDGET_MS) { readJob?.join() }
+        }
         mutex.withLock {
             if (activeSessionId != null) {
                 throw AudioCaptureException(
@@ -130,6 +145,36 @@ class PcmAudioRecorder(
 
             Log.i(TAG, "capture_started sessionId=$sessionId sampleRate=${record.sampleRate}")
             readJob = scope.launch { readLoop(sessionId, record) }
+            // 截止由看门狗负责:readLoop 可能长期阻塞在 record.read() 里,自己数不到时间
+            watchdogJob = scope.launch {
+                val deadline = SystemClock.elapsedRealtime() + options.maxDurationMs
+                while (!stopRequested && SystemClock.elapsedRealtime() < deadline) {
+                    delay(WATCHDOG_TICK_MS)
+                }
+                if (stopRequested) return@launch
+
+                // 到点:再给一个宽限,让最后几块把缓冲自然填到上限
+                // (硬切在块边界上会让样本数略少于上限)
+                val lingerUntil = SystemClock.elapsedRealtime() + PROGRESS_GRACE_MS
+                val capacity = capacitySamples(options)
+                while (!stopRequested &&
+                    SystemClock.elapsedRealtime() < lingerUntil &&
+                    sampleCount < capacity
+                ) {
+                    delay(WATCHDOG_TICK_MS)
+                }
+                if (stopRequested) return@launch
+
+                durationCapped = sampleCount > 0
+                stopRequested = true
+                Log.i(
+                    TAG,
+                    "capture_deadline sessionId=$sessionId maxMs=${options.maxDurationMs} " +
+                        "samples=$sampleCount capped=$durationCapped",
+                )
+                // 解阻塞:stop 会让阻塞中的 read 立即返回
+                runCatching { record.stop() }
+            }
         }
     }
 
@@ -164,25 +209,53 @@ class PcmAudioRecorder(
 
     private class Collected(val samples: FloatArray, val capped: Boolean)
 
-    /** 停止标志 + 解阻塞 + 等待读取循环收敛;重复停止返回空结果 */
+    /**
+     * 停止标志 + 解阻塞 + 等待读取循环收敛;重复停止返回空结果。
+     *
+     * 等待有上限([CLEANUP_BUDGET_MS]):读取循环卡在原生 read 时不能无限挂住调用方。
+     * 超时不强清状态——资源仍由旧读循环持有,置 [releasePending],由后台等待者
+     * 在其真正结束后收尾;期间 [start] 会拒绝并发打开麦克风。
+     */
     private suspend fun shutdown(keepSamples: Boolean = false): Collected = stopMutex.withLock {
         stopRequested = true
+        watchdogJob?.cancel()
         // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略
         runCatching { audioRecord?.stop() }
-        readJob?.join()
-        mutex.withLock {
+        val job = readJob
+        val joined = withTimeoutOrNull(CLEANUP_BUDGET_MS) { job?.join() } != null || job?.isCompleted == true
+        if (!joined) {
+            releasePending = true
+            val sessionId = activeSessionId
+            Log.w(TAG, "capture_cleanup_timeout sessionId=$sessionId; 等待旧读循环释放后再放行")
+            // 不持锁等待:读循环的收尾路径也要拿锁,持锁 join 会自锁
+            scope.launch {
+                runCatching { job?.join() }
+                finalizeRelease(sessionId, keepSamples = false)
+            }
+            return@withLock Collected(FloatArray(0), capped = false)
+        }
+        finalizeRelease(activeSessionId, keepSamples)
+    }
+
+    /** 真正清状态;调用方保证读取循环已结束 */
+    private suspend fun finalizeRelease(sessionId: Long?, keepSamples: Boolean): Collected {
+        val collected = mutex.withLock {
             val samples = if (keepSamples) buffer.copyOf(sampleCount) else FloatArray(0)
-            val collected = Collected(samples, durationCapped)
+            val result = Collected(samples, durationCapped)
             buffer = FloatArray(0)
             audioRecord = null
             readJob = null
+            watchdogJob = null
             activeSessionId = null
             sampleCount = 0
             durationCapped = false
             stopRequested = false
+            releasePending = false
             currentRms = 0f
-            collected
+            result
         }
+        if (sessionId != null) Log.i(TAG, "capture_released sessionId=$sessionId")
+        return collected
     }
 
     private fun createRecord(options: CaptureOptions): AudioRecord {
@@ -233,7 +306,6 @@ class PcmAudioRecorder(
     private suspend fun readLoop(sessionId: Long, record: AudioRecord) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val chunk = ShortArray(CHUNK_SAMPLES)
-        var lastProgressAtMs = SystemClock.elapsedRealtime()
         try {
             while (!stopRequested) {
                 val n = record.read(chunk, 0, chunk.size)
@@ -246,23 +318,9 @@ class PcmAudioRecorder(
                 }
                 if (n == 0) continue
                 appendPcm(chunk, n)
-                lastProgressAtMs = SystemClock.elapsedRealtime()
                 if (sampleCount >= capacitySamples(options)) {
                     durationCapped = true
                     Log.i(TAG, "capture_duration_capped sessionId=$sessionId")
-                    break
-                }
-                // 兜底截止:设备长时间不给帧时样本量不增长,必须退出,否则 AudioRecord 不会释放。
-                // 只判"多久没有新样本",不判总墙钟——仍在到达的音频不该被截断。
-                val stalledMs = SystemClock.elapsedRealtime() - lastProgressAtMs
-                if (stalledMs >= options.maxDurationMs) {
-                    // 一帧都没收到就不算"录到上限",按误触避免交付空音频
-                    durationCapped = sampleCount > 0
-                    Log.i(
-                        TAG,
-                        "capture_stalled sessionId=$sessionId stalledMs=$stalledMs " +
-                            "samples=$sampleCount capped=$durationCapped",
-                    )
                     break
                 }
             }
@@ -334,5 +392,14 @@ class PcmAudioRecorder(
 
         /** dispose 等待读取循环收敛的上限;超时后仍会关 scope */
         private const val DISPOSE_TIMEOUT_MS = 2_000L
+
+        /** stop/cancel 等待读取循环收敛的预算(与 dispose 同口径) */
+        private const val CLEANUP_BUDGET_MS = 2_000L
+
+        /** 截止看门狗的轮询粒度 */
+        private const val WATCHDOG_TICK_MS = 100L
+
+        /** 到点后等最后几块写入的宽限(避免在块边界硬切,样本数略少于上限) */
+        private const val PROGRESS_GRACE_MS = 300L
     }
 }

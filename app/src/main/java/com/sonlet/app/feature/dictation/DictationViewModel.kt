@@ -31,6 +31,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -105,6 +107,9 @@ class DictationViewModel @JvmOverloads constructor(
     private val draftKeeper = DraftKeeper(draftStore, viewModelScope)
 
     private val toasts = Channel<Toast>(Channel.BUFFERED)
+
+    /** 结果写入的串行边界:确认交付、插入正文、落草稿在同一临界区 */
+    private val deliveryMutex = Mutex()
     val toastFlow = toasts.receiveAsFlow()
 
     init {
@@ -113,14 +118,20 @@ class DictationViewModel @JvmOverloads constructor(
         // 正文走独立通道:插入成功后才确认交付,不再与提示共享背压
         viewModelScope.launch {
             controller.results.collect { result ->
-                // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
-                val updated = TextInsertionPolicy.insert(editorValue, result.text)
-                originalState.value = result.original
-                editorValue = updated
-                onEditorChanged?.invoke(updated)
-                draftKeeper.onChange(updated, immediate = true)
-                controller.confirmDelivered(result.sessionId, result.resultId)
-                toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_inserted))
+                // 校验、去重与写入必须同一串行边界:先取得交付权,再落正文(复审 P1-2)。
+                // confirmDelivered 返回 false 说明会话已结束/被撤销,此时一个字符都不能写。
+                deliveryMutex.withLock {
+                    if (!controller.confirmDelivered(result.sessionId, result.resultId)) {
+                        return@withLock
+                    }
+                    // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
+                    val updated = TextInsertionPolicy.insert(editorValue, result.text)
+                    originalState.value = result.original
+                    editorValue = updated
+                    onEditorChanged?.invoke(updated)
+                    draftKeeper.onChange(updated, immediate = true)
+                    toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_inserted))
+                }
             }
         }
         // 轻提示:允许丢弃,trySend 不阻塞调用方
@@ -185,6 +196,8 @@ class DictationViewModel @JvmOverloads constructor(
     private val teardownScope = CoroutineScope(teardownJob + Dispatchers.IO)
 
     override fun onCleared() {
+        // 先撤销队列里尚未写入的结果,再落草稿:离开页面后旧正文不该再被补进来
+        runCatching { controller.revokePending() }
         // 退出前把尚未防抖落盘的草稿写下来
         runCatching { draftKeeper.flush(editorValue) }
         // 页面销毁:停止采集、失效交付、释放 native 资源(PRD §5.3、AC-P0-014)

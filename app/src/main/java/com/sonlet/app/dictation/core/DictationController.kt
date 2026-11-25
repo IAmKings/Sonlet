@@ -248,20 +248,16 @@ class DictationController(
                 pendingFinish = false
                 finish.complete(Unit)
             }
-            var lastDuration = -1L
-            var lastProgressAtMs = nowMs()
+            // 截止从"实际开始采集"算起,用单调时钟;不能按已采集样本量推,
+            // 否则设备慢速出样时样本量追不上墙钟,录制会越过 30 秒上限(复审 P1-1)
+            val captureStartedAtMs = nowMs()
             val ticker = scope.launch {
                 while (true) {
                     delay(DURATION_TICK_MS)
                     val duration = capture.currentDurationMs.coerceAtMost(captureOptions.maxDurationMs)
-                    val now = nowMs()
-                    if (duration > lastDuration) {
-                        lastDuration = duration
-                        lastProgressAtMs = now
-                    }
-                    // 到时即收尾;另外设备零读时时长不前进,只看时长会永不结束,故加"停滞"判定
+                    // 到时即收尾;duration 那一项只是缓冲写满的等价条件,墙钟才是上限
                     if (duration >= captureOptions.maxDurationMs ||
-                        now - lastProgressAtMs >= captureOptions.maxDurationMs
+                        nowMs() - captureStartedAtMs >= captureOptions.maxDurationMs
                     ) {
                         finish.complete(Unit)
                     }
@@ -381,9 +377,13 @@ class DictationController(
     fun confirmDelivered(sessionId: Long, resultId: String): Boolean =
         guard.confirmDelivered(sessionId, resultId)
 
+    /** 离开听写页:队列里尚未写入的结果一律作废 */
+    fun revokePending() = guard.invalidateAll()
+
     private fun cancelActive() {
         val sessionId = _state.value.sessionId ?: return
-        guard.invalidateAll()
+        // 取消/切后台:撤销尚未写入的结果,避免回来后旧正文被补进去
+        guard.revoke(sessionId)
         pendingFinish = false
         val job = sessionJob
         _state.update { it.copy(phase = DictationPhase.CANCELLING) }
@@ -411,7 +411,8 @@ class DictationController(
     }
 
     private fun finishToReady(sessionId: Long) {
-        guard.endSession(sessionId)
+        // 流水线到此结束,但结果可能还在队列里:保留交付窗口,由消费者确认或撤销
+        guard.finishSession(sessionId)
         pendingFinish = false
         _state.update { state ->
             if (state.sessionId == sessionId) {

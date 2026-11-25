@@ -8,10 +8,14 @@ import android.content.Context
  * 用 `commit()` 而不是 `apply()`:草稿量小(单条文本),同步写入才能保证
  * 进程在下一帧被杀时内容已经落盘;调用方已做防抖,不会按每个按键写一次。
  */
-class SharedPreferencesDraftStore(context: Context) : DraftStore {
+class SharedPreferencesDraftStore(
+    context: Context,
+    /** 存储名;设备测试传独立名字,避免读写用户的真实草稿 */
+    prefsName: String = PREFS_NAME,
+) : DraftStore {
 
     private val prefs = context.applicationContext
-        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     override fun load(): DraftStore.Draft? {
         val text = prefs.getString(KEY_TEXT, null) ?: return null
@@ -40,7 +44,8 @@ class SharedPreferencesDraftStore(context: Context) : DraftStore {
         prefs.edit().remove(KEY_TEXT).remove(KEY_SELECTION_START).remove(KEY_SELECTION_END).commit()
     }
 
-    private companion object {
+    companion object {
+        /** 生产存储名;测试不要用它 */
         const val PREFS_NAME = "editor_draft"
         const val KEY_TEXT = "text"
         const val KEY_SELECTION_START = "selection_start"

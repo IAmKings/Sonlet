@@ -559,6 +559,27 @@ class DictationStateMachineTest {
     }
 
     @Test
+    fun `slow trickle capture still stops at the wall clock deadline`() = runTest {
+        val (controller, engine, capture) = newController(
+            engine = FakeAsrEngine().apply { transcribeText = "慢速" },
+        )
+        awaitPhase(controller, DictationPhase.READY)
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+
+        // 每 10 秒才来 1 秒音频:按样本算的时长永远追不上 30 秒上限,
+        // 只有固定墙钟截止才能收敛(复审 P1-1 的原始复现条件)
+        repeat(4) { index ->
+            capture.currentDurationMsOverride = (index + 1) * 1_000L
+            pump(10_000)
+        }
+
+        awaitPhase(controller, DictationPhase.READY)
+        assertEquals(1, capture.stoppedCount)
+        assertEquals(1, engine.transcribeCount.get())
+    }
+
+    @Test
     fun `route change during transcription still delivers the text`() = runTest {
         val (controller, _, capture) = newController(
             engine = FakeAsrEngine().apply {
