@@ -29,7 +29,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun startStopReturnsBoundedMonoSamples() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.start(1L, options)
         Thread.sleep(600)
         val result = recorder.stop(1L)
@@ -47,7 +47,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun cancelDiscardsAudioAndReleases() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.start(2L, options)
         Thread.sleep(300)
         recorder.cancel(2L)
@@ -61,7 +61,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun doubleStartIsRejectedAsBusy() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.start(4L, options)
         val thrown = runCatching { recorder.start(5L, options) }
         assertTrue(thrown.exceptionOrNull() is AudioCaptureException)
@@ -75,7 +75,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun cancelIsIdempotentAndToleratesUnknownSession() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.cancel(99L) // 无活动会话:静默幂等
         recorder.start(6L, options)
         recorder.cancel(99L) // 非归属会话:忽略(不变量 4)
@@ -86,7 +86,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun durationCapAutoStopsRecording() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.start(7L, options)
         // 上限 1.5s;给足 2.5s 让读取循环触发自动停止
         Thread.sleep(2_500)
@@ -98,7 +98,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun stopFromForeignSessionIsRejected() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         recorder.start(8L, options)
         val thrown = runCatching { recorder.stop(9L) }
         assertTrue(thrown.exceptionOrNull() is AudioCaptureException)
@@ -108,7 +108,7 @@ class AudioRecordLifecycleTest {
 
     @Test
     fun actualSampleRateMatchesRequest() = runBlocking {
-        val recorder = PcmAudioRecorder(context, options)
+        val recorder = PcmAudioRecorder(context)
         // createRecord 内部校验 getSampleRate == 16k,启动成功即代表格式受支持(AC-P0-022)
         recorder.start(10L, options)
         recorder.cancel(10L)

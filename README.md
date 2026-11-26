@@ -71,8 +71,8 @@ scripts/fetch_model.sh
 推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml`（Release Candidate）会构建并校验：
 
 ```sh
-git tag -a v0.1.5 -m "v0.1.5"
-git push origin v0.1.5
+git tag -a v0.1.6 -m "v0.1.6"
+git push origin v0.1.6
 ```
 
 工作流依次：读取已公开版本 → 解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 上传 artifact `sonlet-release-apk`。
@@ -82,7 +82,7 @@ git push origin v0.1.5
 只想演练、不产出候选包以外的副作用：
 
 ```sh
-gh workflow run "Release Candidate" --ref main -f tag=v0.1.5
+gh workflow run "Release Candidate" --ref main -f tag=v0.1.6
 ```
 
 模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。
