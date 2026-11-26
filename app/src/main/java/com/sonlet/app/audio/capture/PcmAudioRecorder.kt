@@ -220,8 +220,10 @@ class PcmAudioRecorder(
     private suspend fun shutdown(keepSamples: Boolean = false): Collected = stopMutex.withLock {
         stopRequested = true
         watchdogJob?.cancel()
-        // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略
-        runCatching { audioRecord?.stop() }
+        // 读取循环可能已自行停止并释放 record;stop 仅用于解阻塞,异常忽略。
+        // 原生 stop 在驱动无响应时会阻塞,所以不在这里同步等它,而是丢给 IO:
+        // 调用方的最长等待由下面的 join 预算保证(复审 P1-1 残留)
+        audioRecord?.let { record -> scope.launch { runCatching { record.stop() } } }
         val sessionId = activeSessionId
         // 超时分支里 gate 会起后台等待者,真正的释放仍只发生在 finalizeRelease()
         if (!releaseGate.awaitRelease(sessionId ?: -1L, readJob)) {
@@ -234,6 +236,10 @@ class PcmAudioRecorder(
     /** 真正清状态;调用方保证读取循环已结束 */
     private suspend fun finalizeRelease(sessionId: Long?, keepSamples: Boolean): Collected {
         val collected = mutex.withLock {
+            // 同一会话只能收尾一次:迟到的第二次调用拿到的是空结果,不得再清一次状态
+            if (sessionId != null && activeSessionId != null && activeSessionId != sessionId) {
+                return@withLock null
+            }
             val samples = if (keepSamples) buffer.copyOf(sampleCount) else FloatArray(0)
             val result = Collected(samples, durationCapped)
             buffer = FloatArray(0)
@@ -247,8 +253,9 @@ class PcmAudioRecorder(
             currentRms = 0f
             result
         }
+        val result = collected ?: return Collected(FloatArray(0), capped = false)
         if (sessionId != null) Log.i(TAG, "capture_released sessionId=$sessionId")
-        return collected
+        return result
     }
 
     private fun createRecord(options: CaptureOptions): AudioRecord {

@@ -86,4 +86,24 @@ class ReleaseGateTest {
         assertEquals("预算内结束由调用方收尾,后台等待者不得再收一次", emptyList<Long>(), released)
         assertFalse(gate.releasePending)
     }
+
+    @Test
+    fun `repeat call during a pending release never releases twice`() = runTest {
+        val stuck = Job()
+        val released = mutableListOf<Long>()
+        val gate = ReleaseGate(budgetMs = 1_000L, scope = backgroundScope) { released += it }
+
+        gate.awaitRelease(sessionId, stuck)
+        advanceTimeBy(1_500)
+        runCurrent()
+
+        // 旧读循环刚好结束,但上一轮的后台收尾还没被调度:此时再来一次 stop 不得再收一遍
+        stuck.complete()
+        val second = gate.awaitRelease(sessionId, stuck)
+        advanceTimeBy(1_500)
+        runCurrent()
+
+        assertFalse("已有收尾在途时,后来的调用只等它,自己不得收尾", second)
+        assertEquals("同一会话只能收尾一次", listOf(sessionId), released)
+    }
 }

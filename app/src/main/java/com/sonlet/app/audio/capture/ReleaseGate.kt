@@ -38,6 +38,12 @@ internal class ReleaseGate(
      * @return true 表示已在本轮完成收尾；false 表示超时并已转后台收尾。
      */
     suspend fun awaitRelease(sessionId: Long, job: Job?): Boolean {
+        // 已经有一轮在后台收尾时,这一轮只等它,绝不再收一次(同一会话只能收尾一次)
+        val pendingRelease = synchronized(lock) { drainSignal }
+        if (pendingRelease != null) {
+            withTimeoutOrNull(budgetMs) { pendingRelease.await() }
+            return false
+        }
         val joined = withTimeoutOrNull(budgetMs) { job?.join() } != null || job?.isCompleted == true
         // 预算内结束:收尾交给调用方做,避免和后台等待者各收一次(会把刚采到的样本清空)
         if (joined) return true
