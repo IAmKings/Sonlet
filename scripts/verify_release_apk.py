@@ -14,6 +14,20 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 # v0.1.0 起沿用的公开签名证书指纹，用于验证升级路径。
+# 已登记的应用权限;新增权限必须同时更新本清单与 docs/release_checklist.md
+ALLOWED_PERMISSIONS = {
+    "android.permission.RECORD_AUDIO",
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
+    "android.permission.REQUEST_INSTALL_PACKAGES",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+    "android.permission.WAKE_LOCK",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "com.sonlet.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+}
+
 PUBLISHED_SIGNER = "22fa1ab87ca46f2d6003b95983b9156b7e8b35d3810d91a6af4010d23339049b"
 MAX_VERSION_CODE = 2_100_000_000
 NATIVE_LIBRARIES = ("libonnxruntime.so", "libsherpa-onnx-jni.so")
@@ -91,8 +105,17 @@ def verify_apk(apk, sdk, tag, code):
     ):
         raise ValueError("APK 包名、versionCode 或 versionName 与候选版本不匹配")
     permissions = sdk_output(sdk, "aapt", "dump", "permissions", apk)
-    if "android.permission.INTERNET" in permissions:
-        raise ValueError("离线 APK 不应申请 INTERNET 权限")
+    # 0.1.7 起接入应用内更新:INTERNET 是唯一为"检查更新"申请的网络权限,必须存在;
+    # 同时用白名单兜住依赖漂移带来的额外权限(WorkManager/ReleaseKite 会合并一堆)。
+    required = {"android.permission.INTERNET", "android.permission.REQUEST_INSTALL_PACKAGES"}
+    missing = sorted(required - set(re.findall(r"android\.permission\.[A-Z_]+", permissions)))
+    if missing:
+        raise ValueError(f"APK 缺少更新功能所需权限: {missing}")
+    extra = sorted(
+        set(re.findall(r"android\.permission\.[A-Z_]+", permissions)) - ALLOWED_PERMISSIONS
+    )
+    if extra:
+        raise ValueError(f"APK 申请了未登记的新权限: {extra}")
 
     manifest = json.loads((ROOT / "models/manifest.json").read_text(encoding="utf-8"))
     vad = manifest["vad_model"]

@@ -24,7 +24,7 @@
 | 大字体 200% / 深色 / 横屏 | 通过 | 截图验收（`6ce2bf9`、PR #26） |
 | 外接键盘（回车/空格切换录音） | 通过 | `VoiceActionRowGestureTest` OK (6 tests) |
 | 权限：首次授予、拒绝、永久拒绝、设置页恢复 | 通过 | `MicPermissionStateTest` 4 例 + 人工复核 |
-| 完全离线 | 通过（静态） | APK 无 `android.permission.INTERNET`（`dumpsys package` 无该权限行） |
+| 离线识别 | 通过（静态 + 实测） | 识别/模型校验不发起请求；0.1.7 起 `INTERNET` 仅用于更新检查，飞行模式下更新静默失败、听写正常 |
 | Android 版本 | 通过 14（API 34）与 17（API 37）；**API 26–33 未覆盖** | 两台各跑全量 `OK (42 tests)`；PJZ110 冷启 354ms、界面正常（§3.4） |
 | SoC 平台 | 通过 | 联发科 MT6985（Dimensity 9200+）与高通 SM8750（Snapdragon 8 Elite）各 42/42 |
 | 厂商 ROM | 部分覆盖 | 小米 HyperOS OS1.0（Android 14）与 ColorOS（Android 17）；其他 ROM 未覆盖 |
