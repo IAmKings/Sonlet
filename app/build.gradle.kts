@@ -32,8 +32,8 @@ android {
         applicationId = "com.sonlet.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = sonletVersionCode ?: 106
-        versionName = sonletVersionName ?: "0.1.6"
+        versionCode = sonletVersionCode ?: 107
+        versionName = sonletVersionName ?: "0.1.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // PRD D-04:首发仅 arm64-v8a
         ndk {
