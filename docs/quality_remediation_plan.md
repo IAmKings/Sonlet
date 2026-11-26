@@ -1,6 +1,6 @@
 # Sonlet 代码质量整改计划
 
-**状态**　完成，2026-11-25：第 1–3 节与第 4 节（含 4-4 合规签字）全部完成。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.5](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.5)。
+**状态**　完成，2026-11-25：第 1–3 节与第 4 节（含 4-4 合规签字）全部完成。审查基线为 `main@32f6c63`，变更比较起点为 `8fb9a04`。GitHub 最新公开版为 [v0.1.6](https://github.com/IAmKings/Sonlet/releases/tag/v0.1.6)。
 
 本轮目标是恢复可核验的发布流程，解决听写结果丢失和录音停不下来的问题，并补齐正文隐私与界面验收。既有性能目标、待验证项和受限内测批准沿用 [PRD](Hex_Android_Offline_ASR_PRD_v1.0.md)、[发布决策](release_decision.md)与[发布检查清单](release_checklist.md)。[上次候选包记录](release_readiness_plan.md)仅对应其中记录的文件摘要。
 
