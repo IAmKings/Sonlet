@@ -2,7 +2,7 @@
 
 **Speak locally. Build freely.**
 
-面向 Android 的轻量端侧语音工具集。P0 闭环与 P1 交互增强均已实现并在真机/模拟器验证:点击或按住录音、本地 SenseVoice INT8 转写、Silero VAD 分段、文本风格处理、结果插入当前编辑框;完全离线,不申请 INTERNET 权限。
+面向 Android 的轻量端侧语音工具集。P0 闭环与 P1 交互增强均已实现并在真机/模拟器验证:点击或按住录音、本地 SenseVoice INT8 转写、Silero VAD 分段、文本风格处理、结果插入当前编辑框。识别与模型加载完全离线;0.1.7 起为「检查更新」申请 INTERNET(仅访问 GitHub Releases,见下方「应用内更新」)。
 
 - [设计系统与交互规范](DESIGN.md)
 - [产品需求与技术方案](docs/Hex_Android_Offline_ASR_PRD_v1.0.md)
@@ -105,6 +105,14 @@ python3 scripts/verify_release_apk.py v0.1.0 --apk <path> --build-tools <sdk>/bu
 
 公开发行前，按[发布准备计划](docs/release_readiness_plan.md)与[发布门检查清单](docs/release_checklist.md)记录设备验收、APK 哈希与分发批准。
 
+## 应用内更新
+
+0.1.7 起接入 [ReleaseKite](https://github.com/IAmKings/ReleaseKite):启动后进入 READY 时检查一次(24 小时内最多一次),仅走 GitHub Releases;发现新版本时用应用内弹窗提示,不强制更新。
+
+- 网络权限只有 `INTERNET`,且只访问 `api.github.com` / `github.com`(检查与下载);
+- 关闭方式:设置里无需开关,直接把 `SonletApp.UPDATE_CONFIG` 的 `autoCheckIntervalMs` 调大或调用 `manager.setAutoCheckEnabled(false)`;
+- 识别、模型校验、草稿存储仍完全离线,断网时更新检查静默失败。
+
 ## Release 签名
 
 Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。首次在本地执行:
@@ -133,7 +141,7 @@ keyPassword=你的口令
 | `RELEASE_KEY_ALIAS` | 密钥别名 |
 | `RELEASE_KEY_PASSWORD` | 密钥口令 |
 
-工作流使用 `scripts/verify_release_apk.py` 校验版本、签名、模型、NOTICE、原生库和离线权限。
+工作流使用 `scripts/verify_release_apk.py` 校验版本、签名、模型、NOTICE、原生库和权限清单(见 `ALLOWED_PERMISSIONS`)。
 
 ## 已知限制(P0/P1,如实记录;T4-05 已签署 Conditional Go,2026-11-04)
 

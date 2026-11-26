@@ -63,4 +63,14 @@
     <string name="msg_filtered">This style produced no text. You can view the original transcript.</string>
     <string name="original_transcript_title">Latest original transcript</string>
     <string name="a11y_waveform">Live recording level</string>
+    <string name="update_title">Version %1$s available</string>
+    <string name="update_size">Package %1$s</string>
+    <string name="update_now">Update now</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading %1$d%%</string>
+    <string name="update_verifying">Verifying package…</string>
+    <string name="update_need_permission">Allow "install unknown apps" to finish updating.</string>
+    <string name="update_grant">Open settings</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_failed">Download failed. Check your network and retry.</string>
 </resources>
