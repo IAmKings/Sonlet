@@ -93,6 +93,20 @@ class DictationViewModel @JvmOverloads constructor(
     /** 编辑器状态更新回调(Compose 侧通过双向绑定写回) */
     var onEditorChanged: ((TextFieldValue) -> Unit)? = null
 
+    /**
+     * 把结果写入编辑器,位置取**交付当刻**的 [editorValue] 与选区(PRD §5.3 决定性约束)。
+     *
+     * 调用方必须已经通过 [DictationController.confirmDelivered] 拿到交付权,并持有 deliveryMutex;
+     * 这里不再做任何"这一轮该不该交付"的判断。
+     */
+    internal fun applyDeliveredText(text: String, original: String?) {
+        val updated = TextInsertionPolicy.insert(editorValue, text)
+        originalState.value = original
+        editorValue = updated
+        onEditorChanged?.invoke(updated)
+        draftKeeper.onChange(updated, immediate = true)
+    }
+
     fun updateEditor(value: TextFieldValue) {
         editorValue = value
         draftKeeper.onChange(value)
@@ -124,12 +138,7 @@ class DictationViewModel @JvmOverloads constructor(
                     if (!controller.confirmDelivered(result.sessionId, result.resultId)) {
                         return@withLock
                     }
-                    // 以交付当刻的最新编辑状态插入(PRD §5.3 决定性约束)
-                    val updated = TextInsertionPolicy.insert(editorValue, result.text)
-                    originalState.value = result.original
-                    editorValue = updated
-                    onEditorChanged?.invoke(updated)
-                    draftKeeper.onChange(updated, immediate = true)
+                    applyDeliveredText(result.text, result.original)
                     toasts.trySend(Toast.Res(com.sonlet.app.R.string.msg_inserted))
                 }
             }
