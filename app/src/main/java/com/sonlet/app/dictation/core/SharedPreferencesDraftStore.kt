@@ -1,6 +1,7 @@
 package com.sonlet.app.dictation.core
 
 import android.content.Context
+import android.util.Log
 
 /**
  * 用应用私有 [android.content.SharedPreferences] 保存草稿。
@@ -33,18 +34,29 @@ class SharedPreferencesDraftStore(
             clear()
             return
         }
-        prefs.edit()
+        val committed = prefs.edit()
             .putString(KEY_TEXT, draft.text)
             .putInt(KEY_SELECTION_START, draft.selectionStart)
             .putInt(KEY_SELECTION_END, draft.selectionEnd)
             .commit()
+        if (!committed) {
+            // 磁盘满/存储损坏时 commit() 返回 false;不抛异常以免打断输入,但要留下痕迹
+            Log.w(TAG, "draft_save_failed chars=${draft.text.length}")
+        }
     }
 
     override fun clear() {
-        prefs.edit().remove(KEY_TEXT).remove(KEY_SELECTION_START).remove(KEY_SELECTION_END).commit()
+        val committed = prefs.edit()
+            .remove(KEY_TEXT)
+            .remove(KEY_SELECTION_START)
+            .remove(KEY_SELECTION_END)
+            .commit()
+        if (!committed) Log.w(TAG, "draft_clear_failed")
     }
 
     companion object {
+        private const val TAG = "SonletDraft"
+
         /** 生产存储名;测试不要用它 */
         const val PREFS_NAME = "editor_draft"
         const val KEY_TEXT = "text"

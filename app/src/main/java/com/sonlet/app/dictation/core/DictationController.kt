@@ -162,8 +162,9 @@ class DictationController(
                 DictationPhase.STARTING -> pendingFinish = true
                 else -> Unit
             }
-            DictationCommand.Cancel -> if (phase in CANCELLABLE_PHASES) cancelActive()
-            DictationCommand.AppBackgrounded -> if (phase in CANCELLABLE_PHASES) cancelActive()
+            // 待机时没有可取消的会话,但可能还有排队的转写结果;离开/取消同样不得把它写进正文
+            DictationCommand.Cancel -> if (phase in CANCELLABLE_PHASES) cancelActive() else revokePending()
+            DictationCommand.AppBackgrounded -> if (phase in CANCELLABLE_PHASES) cancelActive() else revokePending()
             // 音频已采集完时路由变化不影响结果:继续转写(AC-P0-015 只管"录制中不自动回填")
             DictationCommand.AudioRouteInterrupted -> when (phase) {
                 DictationPhase.STARTING, DictationPhase.RECORDING -> {

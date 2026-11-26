@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -608,5 +609,51 @@ class DictationStateMachineTest {
 
     private fun capture_finish(controller: DictationController) {
         controller.dispatch(DictationCommand.Finish)
+    }
+
+    @Test
+    fun `backgrounding while a result is queued voids that result`() = runTest {
+        val (controller, _, capture) = newController()
+        val ready = mutableListOf<DictationEvent.TranscriptReady>()
+        backgroundScope.launch { controller.results.collect { ready.add(it) } }
+        pump()
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        awaitPhase(controller, DictationPhase.READY)
+        pump()
+
+        val result = ready.single()
+        controller.dispatch(DictationCommand.AppBackgrounded)
+        pump()
+
+        assertFalse(
+            "待机后切后台仍能确认交付,旧结果就会被写进正文(复审 P1-2)",
+            controller.confirmDelivered(result.sessionId, result.resultId),
+        )
+    }
+
+    @Test
+    fun `cancel while a result is queued voids that result`() = runTest {
+        val (controller, _, capture) = newController()
+        val ready = mutableListOf<DictationEvent.TranscriptReady>()
+        backgroundScope.launch { controller.results.collect { ready.add(it) } }
+        pump()
+        controller.dispatch(DictationCommand.Start)
+        awaitPhase(controller, DictationPhase.RECORDING)
+        capture.currentDurationMsOverride = 2_000L
+        controller.dispatch(DictationCommand.Finish)
+        awaitPhase(controller, DictationPhase.READY)
+        pump()
+
+        val result = ready.single()
+        controller.dispatch(DictationCommand.Cancel)
+        pump()
+
+        assertFalse(
+            "待机后取消仍能确认交付,旧结果就会被写进正文(复审 P1-2)",
+            controller.confirmDelivered(result.sessionId, result.resultId),
+        )
     }
 }
