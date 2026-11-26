@@ -156,22 +156,23 @@ internal fun summarizeNotes(raw: String, maxLines: Int = 4): String {
     val url = Regex("https?://\\S+")
     // GitHub 自动生成的条目尾巴是 " by @user in <link>",去掉链接后残留的 "by @" 也没有信息量
     val author = Regex("""\s*by @\S+\s+in\s*$""")
+    // 库会把 markdown 转成纯文本，星号已消失，所以噪音判定必须放在清洗之后
+    val noise = listOf("What's Changed", "Full Changelog", "Contributors")
+    // 输入可能是纯文本，也可能是 markdown，统一去掉 ** 与 # 的装饰
+    val decoration = Regex("\\*\\*|^#{1,6}\\s*")
     return raw.lines()
         .map { it.trim() }
         .filter { it.isNotEmpty() }
-        .filterNot {
-            it.startsWith("##") ||
-                it.equals("What's Changed", ignoreCase = true) ||
-                it.startsWith("**Full Changelog**")
-        }
         .map { line ->
             line.removePrefix("* ")
                 .removePrefix("- ")
+                .replace(decoration, "")
                 .replace(url, "")
                 .replace(author, "")
                 .trim()
         }
         .filter { it.isNotEmpty() }
+        .filterNot { line -> noise.any { line.startsWith(it, ignoreCase = true) } }
         .take(maxLines)
         .joinToString("\n")
 }

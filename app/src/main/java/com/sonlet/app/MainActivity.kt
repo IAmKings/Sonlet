@@ -66,6 +66,11 @@ private fun UpdateHost() {
     val manager = remember { ReleaseKite.manager }
     val state by manager.state.collectAsStateWithLifecycle()
 
+    // 记录状态迁移，失败原因只留在本机日志，便于用户反馈时定位
+    LaunchedEffect(state) {
+        android.util.Log.d("SonletUpdate", "phase=${state.phase::class.simpleName}")
+    }
+
     LaunchedEffect(manager) { manager.onAppEntered() }
     LifecycleResumeEffect(manager) {
         manager.onAppResumed()
