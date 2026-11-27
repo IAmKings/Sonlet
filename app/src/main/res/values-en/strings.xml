@@ -73,4 +73,5 @@
     <string name="update_grant">Open settings</string>
     <string name="update_retry">Retry</string>
     <string name="update_failed">Download failed. Check your network and retry.</string>
+    <string name="action_check_update">Check for updates</string>
 </resources>
