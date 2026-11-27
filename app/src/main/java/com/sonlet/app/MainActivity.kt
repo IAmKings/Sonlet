@@ -15,6 +15,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonlet.app.feature.update.UpdateDialog
+import com.sonlet.app.feature.update.failureOrNull
+import com.sonlet.app.feature.update.logName
 import com.sonlet.app.feature.dictation.DictationScreen
 import com.sonlet.app.feature.dictation.DictationViewModel
 import com.sonlet.app.ui.theme.SonletTheme
@@ -68,7 +70,15 @@ private fun UpdateHost() {
 
     // 记录状态迁移，失败原因只留在本机日志，便于用户反馈时定位
     LaunchedEffect(state) {
-        android.util.Log.d("SonletUpdate", "phase=${state.phase::class.simpleName}")
+        val phase = state.phase
+        val failure = phase.failureOrNull()
+        android.util.Log.d(
+            "SonletUpdate",
+            buildString {
+                append("phase=").append(phase.logName())
+                if (failure != null) append(" failure=").append(failure)
+            },
+        )
     }
 
     LaunchedEffect(manager) { manager.onAppEntered() }
