@@ -27,6 +27,9 @@ class SonletApp : Application() {
             // 只发 stable,UI 不展示通道切换
             betaChannelEnabled = false,
             downloadFilePrefix = "sonlet",
+            // 默认 24h 对新发布太迟钝:用户当天已经检查过一次,发布后重启也看不到提示。
+            // 缩短到 6h,配合页头的「检查更新」手动入口,兼顾打扰与及时性。
+            autoCheckIntervalMs = 6L * 60 * 60 * 1000,
         )
     }
 }

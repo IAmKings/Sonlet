@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    DictationScreen(viewModel)
+                    DictationScreen(viewModel, onCheckUpdate = { ReleaseKite.manager.checkNow() })
                     UpdateHost()
                 }
             }

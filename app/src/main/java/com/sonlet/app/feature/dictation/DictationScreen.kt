@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,7 +91,7 @@ import java.util.Locale
  * 从上到下:页头 → 可伸缩编辑器 → 状态与语音操作区;所有阶段编辑器可编辑(AC-P0-021)。
  */
 @Composable
-fun DictationScreen(viewModel: DictationViewModel) {
+fun DictationScreen(viewModel: DictationViewModel, onCheckUpdate: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val permission = rememberMicPermissionState()
@@ -198,7 +199,7 @@ fun DictationScreen(viewModel: DictationViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(modifier = contentModifier) {
-                Header()
+                Header(onCheckUpdate = onCheckUpdate)
                 Editor(
                     value = editorValue,
                     onValueChange = {
@@ -285,7 +286,7 @@ private fun DictationErrorCode?.isMicPermissionError(): Boolean =
     this == DictationErrorCode.MIC_PERMISSION_DENIED || this == DictationErrorCode.MIC_PERMISSION_REVOKED
 
 @Composable
-private fun Header() {
+private fun Header(onCheckUpdate: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -303,6 +304,17 @@ private fun Header() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.weight(1f))
+        TextButton(
+            onClick = onCheckUpdate,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.action_check_update),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

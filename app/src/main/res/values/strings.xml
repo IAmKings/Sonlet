@@ -82,4 +82,5 @@
     <string name="update_grant">去设置</string>
     <string name="update_retry">重试</string>
     <string name="update_failed">下载失败，请检查网络后重试。</string>
+    <string name="action_check_update">检查更新</string>
 </resources>
