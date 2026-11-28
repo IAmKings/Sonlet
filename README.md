@@ -1,167 +1,142 @@
 # Sonlet
 
-**Speak locally. Build freely.**
+**说完就落字。全部离线。**
 
-面向 Android 的轻量端侧语音工具集。P0 闭环与 P1 交互增强均已实现并在真机/模拟器验证:点击或按住录音、本地 SenseVoice INT8 转写、Silero VAD 分段、文本风格处理、结果插入当前编辑框。识别与模型加载完全离线;0.1.7 起为「检查更新」申请 INTERNET(仅访问 GitHub Releases,见下方「应用内更新」)。
+Sonlet 是一个 Android 端侧的语音输入工具：按一下（或按住）说话，文字直接落在光标处。
+不需要切换输入法，不依赖网络，音频不出设备。
 
-- [设计系统与交互规范](DESIGN.md)
-- [产品需求与技术方案](docs/Hex_Android_Offline_ASR_PRD_v1.0.md)
-- [真人验收指南](docs/acceptance_guide.md)
-- [第三方版本锁定清单](docs/third_party_versions.md)
-- [第三方许可证清单](docs/third_party_licenses.md)
-- [发布门检查清单](docs/release_checklist.md)
-- [升级路径验证方案](docs/upgrade_verification_plan.md)
-- [标识使用指南](docs/brand/sonlet-logo-kit/使用指南.md)
+一句 30 秒的话，从松手到文字出现，通常在一秒以内——因为识别就发生在你手机上。
 
-## 工程结构
+[下载 APK](https://github.com/IAmKings/Sonlet/releases/latest) · [设计规范](DESIGN.md) · [产品需求](docs/Hex_Android_Offline_ASR_PRD_v1.0.md) · [开发与发布](docs/development.md)
 
-单 Gradle app 模块(`com.sonlet.app`),按 PRD §7.2 分包:
+---
+
+## 为什么不是又一个语音输入法
+
+系统输入法的语音功能要把音频送到云端。网络不好时转圈，隐私敏感时不敢用，飞行模式下直接不可用。
+
+Sonlet 把整条链路放在端侧：
+
+| | 常见云输入法 | Sonlet |
+|---|---|---|
+| 音频去向 | 上传服务器 | 只在内存里，转写完即丢 |
+| 断网 | 不可用 | 完全可用 |
+| 首字延迟 | 受网络抖动 | RTF 0.058，30 秒音频约 1.7 秒纯计算 |
+| 你的口音数据 | 进入厂商语料 | 不离开设备 |
+
+唯一会联网的地方是「检查更新」——访问 GitHub Releases，可关闭（见[应用内更新](#应用内更新)）。
+
+## 能做什么
+
+- **两种录音方式**：点击切换，或按住说话、松手即转写；上滑可取消。
+- **四种文本风格**：原文照录、自然表达、精简、要点笔记。同一段话，四种产出。
+- **自动切句**：先由 VAD 找出真正有语音的片段，静音部分不送进模型，长句自动分段。
+- **光标处插入**：结果落在光标位置，替换选区；中英混排自动补空格，不会粘成 `你好World`。
+- **不留痕迹地退出**：转写结果只写进编辑框；草稿保存在应用私有存储，杀进程后可恢复，清空即删除。
+- **无障碍**：TalkBack 可读、外接键盘空格/回车可完成开始与结束。
+
+## 它是怎么工作的
+
+```
+  16 kHz / PCM16 麦克风输入
+        │  AudioRecord，30 秒单调时钟硬上限
+        ▼
+  Silero VAD 离线分段
+        │  512 样本为一窗（≈32 ms）：阈值 0.5、静音 0.6 s 断句、
+        │  最短语音 0.25 s、单段上限 10 s；静音段直接丢弃
+        ▼
+  SenseVoice-Small INT8（239 MB，sherpa-onnx，CPU）
+        │  zh / en / ja / ko / yue，自带标点与逆文本规整
+        ▼
+  文本后处理
+        │  去口头语、折叠三连重复、按句末标点切行、中英混排空格
+        ▼
+  插入策略
+           按「交付当刻」的光标与选区计算，代理对边界吸附，句界补空格
+```
+
+三个值得说明的设计：
+
+**先分段，再识别。** 30 秒音频要跑约 937 次 VAD 窗口推理，但换来的是静音不进入模型——长段静音不会拖慢识别，也不会让模型在空白处「幻听」出标点。
+
+**一次录音只交付一次。** 会话代际 ID 贯穿采集、识别、插入三层：取消、切后台、重复收尾都会让排队中的结果作废。这条不变量比任何单点优化都更难写对，也更值得写对。
+
+**跳过不必要的哈希。** 模型 239 MB，完整 SHA-256 约 220 ms。校验结果以「包更新时间 + 模型摘要」为 key 缓存，只有安装或升级后才重算。
+
+## 性能与准确率
+
+在 Redmi 23078PND5G（天玑 9200+）实测，语料为 90 条合成语音（每条平均 2.52 秒）：
+
+| 指标 | 中文 | 英文 | 中英混合 |
+|---|---|---|---|
+| 字/词错误率 | 1.66% | 2.08% | 2.74% |
+| RTF（p50 / p95） | 0.058 / 0.074 | 0.066 / 0.088 | 0.058 / 0.082 |
+| 引擎耗时（p50 / p95） | 159 / 259 ms | 135 / 180 ms | 164 / 235 ms |
+
+RTF 0.058 意味着处理 1 秒音频平均花 0.058 秒。回归门槛设在 10% / 10% / 12%，超过即 CI 失败。
+
+**这两行数字要打个折**：语料是 TTS 合成的，不是真人录音。它能守住「没有明显退化」，但代表不了嘈杂环境、口音和远场。真人语料仍在收集。
+
+## 代码结构
 
 ```
 app/src/main/java/com/sonlet/app/
-  asr/api/       AsrEngine 抽象、结果与错误契约
-  asr/sherpa/    sherpa-onnx 引擎实现与模型仓库校验
-  audio/capture/ AudioRecord 采集、路由中断观察
-  dictation/core/ 听写状态机、会话守卫、文本插入策略、格式化
-  feature/dictation/ Compose 编辑页、ViewModel、权限交互
-  ui/theme/      设计规范映射的 Material 3 主题
+  asr/            引擎抽象 + sherpa-onnx 实现
+  audio/          采集、VAD 分段、音频路由中断
+  dictation/core/ 听写状态机、会话守卫、文本后处理、插入策略、草稿
+  feature/        Compose 编辑页、权限、更新弹窗
+  ui/theme/       设计系统映射
 ```
 
-## 环境要求
+引擎契约（`AsrEngine`）规定：native decode 同一时刻只允许一个，调用方取消不代表解码中断，释放必须等在途解码结束。听写状态机把「采集 / 转写 / 取消 / 切后台」的竞争收敛成一条命令队列，界面只订阅状态。
 
-- Android Studio(含 JDK 21 JBR;`gradle.properties` 已指定 `org.gradle.java.home`)
-- Android SDK Platform 37、Build Tools 36.0.0 和 Python 3
-- arm64-v8a 真机(API 26+);模拟器仅可验证构建,JNI 冒烟需真机
+细节见[开发与发布](docs/development.md)。
 
-## 模型与依赖
+## 安装
 
-模型二进制不入库,由脚本校验下载(PRD §11):
+从 [Releases](https://github.com/IAmKings/Sonlet/releases/latest) 下载最新的 `Sonlet-<版本>-arm64-v8a.apk`：
 
-```sh
-scripts/fetch_model.sh
-```
+- Android 8.0（API 26）及以上，**arm64-v8a**（当前不包含其他 ABI）
+- 首次启动做一次模型校验，随后直接进入待录状态
+- 升级沿用同一签名证书，覆盖安装即可，草稿与设置保留
 
-脚本固定下载 `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17`(约 163MB),校验 SHA-256 后解压 `model.int8.onnx` / `tokens.txt` 到 `app/src/main/assets/sensevoice/`,并放置 zh/en 固定样本到 androidTest assets。sherpa-onnx v2.0.1 的 Kotlin API 与 jniLibs 已随仓库提交,版本与哈希记录见 [docs/third_party_versions.md](docs/third_party_versions.md)。
-
-## 构建、测试与运行
-
-```sh
-# 构建
-./gradlew assembleDebug
-
-# JVM 单测(状态机 / 守卫 / 插入策略 / 格式化 / Fake 引擎)
-./gradlew testDebugUnitTest
-
-# 真机仪器测试(JNI 冒烟、引擎契约、采集生命周期)
-./gradlew connectedDebugAndroidTest
-
-# 100 次会话长稳测试(AC-P0-019,单独运行)
-./gradlew connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.sonlet.app.LongRunDictationStressTest
-```
-
-安装到真机:`adb install -r app/build/outputs/apk/debug/app-debug.apk`,或直接在 Android Studio 运行。首次启动自动进行模型 SHA-256 校验(约 1–2 秒),通过后进入 READY。
-
-## 发布
-
-发布分两步：**候选构建**与**公开动作**。推 tag 只产生候选包，不会自动出现在 Releases 页面。
-
-### 1. 构建候选包
-
-推一个 `vMAJOR.MINOR.PATCH` 形式的 tag，`.github/workflows/release.yml`（Release Candidate）会构建并校验：
-
-```sh
-git tag -a v0.1.10 -m "v0.1.10"
-git push origin v0.1.10
-```
-
-工作流依次：读取已公开版本 → 解析版本 → 还原签名密钥 → 拉取并校验模型 → `testDebugUnitTest`、`lintRelease`、`assembleRelease` → 用 `scripts/verify_release_apk.py` 校验版本、签名证书、模型资产与离线权限 → 上传 artifact `sonlet-release-apk`。
-
-跑完在该 run 的 Summary 里拿到三样东西：`tag`、`run_id`、候选包 `SHA-256`。
-
-只想演练、不产出候选包以外的副作用：
-
-```sh
-gh workflow run "Release Candidate" --ref main -f tag=v0.1.10
-```
-
-模型归档约 460MB，按归档 SHA 缓存，重跑不会重复下载。
-
-### 2. 公开发布
-
-在 Actions → Publish 手动触发，填入上一步的 `tag`、`run_id`、`expected_sha256`，以及批准人。该工作流绑定 `release` environment，需要仓库 Settings → Environments → `release` 里配置的 Required reviewers 批准后才会执行。
-
-执行时依次校验：`release` environment 存在 → tag 格式 → **tag 指向的提交等于该 run 的 headSha** → 下载 artifact 并重算 **SHA-256 与输入一致** → 创建 Release 并上传附件。
-
-已存在的 Release 不会被覆盖：同名附件摘要相同则直接成功（幂等重跑），摘要不同则失败并保留原附件。
-
-版本号只从 tag 取：versionCode 按 `major*10000 + minor*100 + patch` 计算，次版本与修订号限 0～99，且必须大于**已公开发布**的最大 versionCode（由 `gh release list` 求出，不再写死）。`app/build.gradle.kts` 里的默认值只影响本地构建，CI 由 tag 注入。
-
-复核历史包或离线核对时可跳过递增门：
-
-```sh
-python3 scripts/verify_release_apk.py v0.1.0 --apk <path> --build-tools <sdk>/build-tools/36.0.0 --published-version-code 0
-```
-
-公开发行前，按[发布准备计划](docs/release_readiness_plan.md)与[发布门检查清单](docs/release_checklist.md)记录设备验收、APK 哈希与分发批准。
+首次运行需要授予麦克风权限；拒绝后会停在权限说明页，可从系统设置重新授权。
 
 ## 应用内更新
 
-0.1.7 起接入 [ReleaseKite](https://github.com/IAmKings/ReleaseKite):启动后进入 READY 时检查一次(24 小时内最多一次),仅走 GitHub Releases;发现新版本时用应用内弹窗提示,不强制更新。
+0.1.7 起接入 [ReleaseKite](https://github.com/IAmKings/ReleaseKite)：进入待录状态时检查一次（6 小时内最多一次），也可点页头「检查更新」手动触发。
 
-- 网络权限只有 `INTERNET`,且只访问 `api.github.com` / `github.com`(检查与下载);
-- 关闭方式:设置里无需开关,直接把 `SonletApp.UPDATE_CONFIG` 的 `autoCheckIntervalMs` 调大或调用 `manager.setAutoCheckEnabled(false)`;
-- 识别、模型校验、草稿存储仍完全离线,断网时更新检查静默失败。
+- 网络权限只有 `INTERNET`，且只访问 `api.github.com` / `github.com`
+- 仅走 stable 通道，校验 GitHub 资产摘要后才安装，不强制更新
+- 断网时静默失败，不影响听写
 
-## Release 签名
+## 已知限制
 
-Release 包用专用 keystore 签名,参数放在仓库根目录的 `keystore.properties`(已 gitignore,不入库)。首次在本地执行:
+- 仅 arm64-v8a；x86 模拟器只能验证构建，跑不了 JNI。
+- 单次录音上限 30 秒；超过部分不再采集，不是「截断一段长音频」。
+- 中英混说的真实准确率尚未量化，现有数字来自合成语料。
+- 通话/蓝牙切换的音频焦点协作未做，依赖采集读取失败兜底。
+- 模型权重 Apache-2.0（ModelScope），sherpa-onnx 与 Silero 许可见 [第三方许可证清单](docs/third_party_licenses.md)。
 
-```sh
-scripts/create_release_keystore.sh
-```
+## 文档
 
-脚本在终端里索要口令(输入不回显,也不进命令行参数),生成 `release.jks` 并回填 `keystore.properties`。也可以自己建好 keystore,再按下面格式手填:
+**产品与设计**：[设计系统与交互规范](DESIGN.md) · [产品需求与技术方案](docs/Hex_Android_Offline_ASR_PRD_v1.0.md) · [真人验收指南](docs/acceptance_guide.md)
 
-```properties
-storeFile=release.jks
-storePassword=你的口令
-keyAlias=sonlet
-keyPassword=你的口令
-```
+**质量与验收**：[准确率评测](docs/benchmarks/asr_accuracy_2026-11-22.md) · [真机矩阵](docs/device_matrix.md) · [发布门检查清单](docs/release_checklist.md) · [质量整改计划](docs/quality_remediation_plan.md)
 
-没有可用密钥时 `./gradlew assembleRelease` 产出 `app-release-unsigned.apk` 并打印提示,不会回落到 debug 证书。
+**开发与合规**：[开发与发布](docs/development.md) · [第三方版本锁定](docs/third_party_versions.md) · [第三方许可证](docs/third_party_licenses.md) · [依赖安全定性](docs/dependency_security.md) · [G07 签字表](docs/g07_signoff.md)
 
-`release.jks` 必须备份，升级包沿用已发布证书。CI 运行需要四个仓库 secret（Settings → Secrets and variables → Actions）：
+## 许可
 
-| secret | 内容 |
+随包分发的第三方组件均为宽松许可，已在发布前逐项核验并签字（2026-11-25）：
+
+| 组件 | 许可证 |
 |---|---|
-| `RELEASE_KEYSTORE_BASE64` | `base64 -i release.jks` 的输出 |
-| `RELEASE_STORE_PASSWORD` | keystore 口令 |
-| `RELEASE_KEY_ALIAS` | 密钥别名 |
-| `RELEASE_KEY_PASSWORD` | 密钥口令 |
+| SenseVoice Small INT8 权重 | Apache-2.0（ModelScope 模型页） |
+| sherpa-onnx v2.0.1（Kotlin API + JNI） | Apache-2.0 |
+| ONNX Runtime（随 sherpa-onnx 分发） | MIT |
+| Silero VAD v4 | MIT |
 
-工作流使用 `scripts/verify_release_apk.py` 校验版本、签名、模型、NOTICE、原生库和权限清单(见 `ALLOWED_PERMISSIONS`)。
+完整原文与再分发义务见 [第三方许可证清单](docs/third_party_licenses.md) 与包内 [NOTICE](docs/licenses/NOTICE.txt)。
 
-## 已知限制(P0/P1,如实记录;T4-05 已签署 Conditional Go,2026-11-04)
-
-- 仅 arm64-v8a;其他 ABI 设备未包含原生库。
-- 中英混说准确率未量化(AC-P0-020,评测工装就绪,语料提供后可一键补测,见 docs/accuracy_eval.md)。
-- 通话打断无音频焦点协作,依赖采集读取失败兜底(蓝牙/拔线场景已覆盖)。
-- 许可证原文已核(均为 MIT/Apache-2.0),法务签字为对外分发前置条件;当前限内部验证与受限内测(docs/release_decision.md)。
-- Dependabot 报告的 61 条依赖告警全部位于构建工具链(classpath),不进入 APK;随 AGP/Kotlin 插件升级清理,定性见 docs/dependency_security.md。
-- P2(流式/多引擎/模型下载/端侧 LLM/AAR)经 2026-11-04 决策不启动。
-
-## Git 提交
-
-提交标题和说明使用中文,必要的技术名称可保留原文。首次克隆后启用仓库提交钩子(需要 Python 3):
-
-```sh
-git config core.hooksPath .githooks
-```
-
-运行提交检查测试:
-
-```sh
-python3 -m unittest discover -s tests -v
-```
+应用自身的源代码目前尚未声明开源许可证；如需引用或再分发，请先开 issue 联系维护者。
