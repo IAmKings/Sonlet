@@ -2,6 +2,8 @@
 
 面向改动 Sonlet 源码的人。产品怎么用、算法长什么样，见 [README](../README.md)。
 
+仓库代码以 [MIT](../LICENSE) 发布；`docs/licenses/` 下的第三方许可与 `LICENSE` 是两回事，不能互相替代。
+
 ## 工程结构
 
 单 Gradle app 模块（`com.sonlet.app`），按 PRD §7.2 分包：

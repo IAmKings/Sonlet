@@ -139,4 +139,6 @@ app/src/main/java/com/sonlet/app/
 
 完整原文与再分发义务见 [第三方许可证清单](docs/third_party_licenses.md) 与包内 [NOTICE](docs/licenses/NOTICE.txt)。
 
-应用自身的源代码目前尚未声明开源许可证；如需引用或再分发，请先开 issue 联系维护者。
+应用自身的源代码以 [MIT](LICENSE) 许可发布。
+
+> 注意：`LICENSE` 只覆盖本仓库的代码，不覆盖随包分发的模型权重与 native 库——它们各自的许可见上表，且不可由 MIT 取代。

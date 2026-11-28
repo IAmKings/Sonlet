@@ -37,6 +37,7 @@ LICENSE_ASSETS = (
     "onnxruntime-LICENSE",
     "sherpa-onnx-LICENSE",
     "silero-vad-LICENSE",
+    "sonlet-LICENSE",
 )
 
 
