@@ -23,3 +23,9 @@ Source: https://github.com/snakers4/silero-vad
 AndroidX Graphics Path 1.0.1 (native library packaged by AndroidX)
 License: Apache License 2.0
 Source: https://android.googlesource.com/platform/frameworks/support/+/androidx-main/graphics/graphics-path/
+
+Sonlet application code
+License: MIT License
+License text: sonlet-LICENSE
+Note: applies to this repository's own source code only. Bundled models and
+native libraries above keep their own licenses and are not relicensed by MIT.
