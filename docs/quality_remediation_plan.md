@@ -52,7 +52,7 @@
 | P1 | 保护已发布附件 | 去掉覆盖上传路径。已有同名附件时，摘要相同的重跑直接成功，摘要不同则停止并保留原附件。模拟上传失败后确认已有附件保持可下载。 |
 | P2 | 新版本必须高于已公开版本 | 分开历史 APK 校验和新版本准入。新发布时按公开过的最高 versionCode 做递增检查，历史包仍可离线复核。覆盖低于、等于和高于公开上限三种情况。 |
 
-涉及 [.github/workflows/release.yml](../.github/workflows/release.yml)、[APK 校验脚本](../scripts/verify_release_apk.py)、[校验测试](../tests/test_release_apk.py)和 [README 发布说明](../README.md)。先用替身或干跑验证拒绝路径，再验证真实签名构建。核对现有公开附件摘要与已有验收记录，差异交负责人确认。公开版本需要修正时走新的递增版本。
+涉及 [.github/workflows/release.yml](../.github/workflows/release.yml)、[APK 校验脚本](../scripts/verify_release_apk.py)、[校验测试](../tests/test_release_apk.py)和 [发布说明](development.md)。先用替身或干跑验证拒绝路径，再验证真实签名构建。核对现有公开附件摘要与已有验收记录，差异交负责人确认。公开版本需要修正时走新的递增版本。
 
 ## 2. 听写可靠性
 
