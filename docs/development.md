@@ -26,6 +26,31 @@ app/src/main/java/com/sonlet/app/
 - Android SDK Platform 37、Build Tools 36.0.0 和 Python 3
 - arm64-v8a 真机（API 26+）；模拟器仅可验证构建，JNI 冒烟需真机
 
+## 听写状态机
+
+### 命令 × 阶段
+
+`DictationController` 的每条命令先看阶段再决定动作，未列出的组合都是 no-op：
+
+| 命令 | STARTING / RECORDING | TRANSCRIBING | READY | PREPARING | ERROR |
+|---|---|---|---|---|---|
+| `Start` | — | — | 开始录音 | — | 仅可重试错误时开始 |
+| `Finish` | RECORDING 结束；STARTING 记 `pendingFinish` | — | — | — | — |
+| `Cancel` | 取消会话并撤销窗口 | 取消并撤销 | 撤销排队结果 | 撤销 | 撤销 |
+| `AppBackgrounded` | 同上 | 同上 | 撤销排队结果 | 撤销 | 撤销 |
+| `AudioRouteInterrupted` | 取消并提示「音频路由变化」 | 不取消，继续转写 | — | — | — |
+| `RetryModel` | — | — | — | 重新准备 | 模型类错误重试 |
+| `DismissError` | — | — | — | — | 非模型错误回 READY |
+
+最后两行是关键差异：**取消**在任何阶段都撤销交付窗口，**路由变化**只在采集阶段取消——录完的音频不该因为插拔耳机被丢掉。
+
+### 各层契约
+
+- `AudioCapture`：`start` 分配缓冲；`stop` 返回已采样本与是否达上限；`cancel` 丢弃样本；`dispose` 可重复调用。30 秒上限由采集侧看门狗独立触发，不依赖读循环继续推进。
+- `AsrEngine`：`prepare` 幂等；`transcribe` 同一时刻只跑一个 decode；`release` 等待在途 decode 结束；三者都不得在主线程执行。
+- `SessionGenerationGuard`：`beginSession` 开窗 → `finishSession` 只清 active、保留窗口 → `confirmDelivered` 成功后关窗；`revoke` / `invalidateAll` 无条件关窗。窗口关掉后 `canApply` 恒为 false。
+- `DraftStore`：非空文本走 320 ms 防抖；变空立即 `clear()` 并让排队中的写入失效（单调 `seq` 比对）。
+
 ## 模型与依赖
 
 模型二进制不入库，由脚本校验下载（PRD §11）：

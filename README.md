@@ -90,7 +90,39 @@ app/src/main/java/com/sonlet/app/
 
 引擎契约（`AsrEngine`）规定：native decode 同一时刻只允许一个，调用方取消不代表解码中断，释放必须等在途解码结束。听写状态机把「采集 / 转写 / 取消 / 切后台」的竞争收敛成一条命令队列，界面只订阅状态。
 
-细节见[开发与发布](docs/development.md)。
+### 从按下到落字
+
+```
+按下 / 松手
+     │  Start · Finish · Cancel · AppBackgrounded · AudioRouteInterrupted
+     ▼
+dictation/core  DictationController（单命令队列，串行处理）
+     │  beginSession() 分配代际 id 并打开交付窗口
+     │  STARTING → RECORDING → TRANSCRIBING → READY
+     ▼
+audio/capture   16 kHz PCM16，30 s 单调时钟看门狗
+     │  到点置 stopRequested 并停 AudioRecord，解除阻塞读
+     ▼
+audio/vad       Silero：512 样本一窗，静音段丢弃，单段 ≤ 10 s
+     ▼
+asr/sherpa      SenseVoice INT8，Mutex 串行 decode（后台线程）
+     │  多段结果 joinTranscripts 合并
+     ▼
+dictation/core  交付（通道携带 sessionId + resultId）
+     │  confirmDelivered 关窗 → TextInsertionPolicy 插入 → 草稿落盘
+     ▼
+编辑器
+```
+
+这条链上有三个不变量，代码里比注释更严格地守着它们：
+
+**① 一次会话只交付一次。** `markDelivered` 负责「已发射」去重，`confirmDelivered` 负责「已消费」关窗；取消、切后台、进入错误态都会 `revoke`，让还在通道里排队的结果作废。所以不会出现「取消了，两秒后文字又冒出来」。
+
+**② 迟到的清理不留痕。** 采集线程阻塞在 `AudioRecord.read()` 时，2 秒预算只够发出停机请求；超预算的那次清理会被 `releasePending` 记着，读循环真正退出后才收尾，且不会写新会话的状态。新录音要么等它退出，要么明确拒绝（`RECORDER_BUSY`）。
+
+**③ 插入按「交付当刻」计算。** 不用开始录音时的快照，而是交付瞬间的光标与选区；代理对中间的光标会被吸附到字符边界，句末补空格只在需要时发生。
+
+完整的状态迁移（命令 × 阶段）与各层契约见[开发与发布](docs/development.md#听写状态机)。
 
 ## 安装
 
